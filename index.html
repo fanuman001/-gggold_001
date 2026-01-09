@@ -3,157 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v6.3 - 發票明細版</title>
+    <title>ELITE Ledger v6.5</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 10px; margin: 0; padding-bottom: 80px; }
         .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid var(--border); }
-        h2 { color: var(--gold); margin: 0 0 10px 0; font-size: 15px; display: flex; align-items: center; }
-        h2::before { content: "◈"; margin-right: 8px; color: var(--blue); }
-        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; margin-bottom: 8px; box-sizing: border-box; font-size: 16px; }
-        button { padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-gold { background: var(--gold); color: #000; width: 48%; }
-        .btn-outline { background: none; border: 1px solid var(--gray); color: var(--gray); width: 48%; }
-        #preview-list, #change-log { background: #000; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 13px; border: 1px solid #333; }
-        /* 發票樣式 */
-        .invoice { background: #fff; color: #000; padding: 15px; border-radius: 5px; font-family: monospace; position: relative; margin-top: 10px; display: none; }
-        .invoice::after { content: ""; position: absolute; bottom: -10px; left: 0; width: 100%; height: 10px; background: radial-gradient(circle, transparent 70%, #fff 70%); background-size: 10px 20px; }
-        .inv-title { border-bottom: 1px dashed #000; font-weight: bold; text-align: center; padding-bottom: 5px; margin-bottom: 10px; }
-        .inv-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        h2 { color: var(--gold); margin: 0 0 10px 0; font-size: 14px; }
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; margin-bottom: 8px; box-sizing: border-box; }
+        .ledger-row { display: flex; justify-content: space-between; padding: 12px; background: #161b22; border-radius: 10px; margin-bottom: 6px; border: 1px solid #333; cursor: pointer; }
+        /* 個人對帳單 Modal */
+        #personal-invoice { display:none; position:fixed; top:5%; left:5%; width:90%; height:85%; background:#fff; color:#000; border-radius:15px; z-index:100; padding:20px; box-sizing:border-box; overflow-y:auto; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .inv-head { text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; }
+        .inv-item { border-bottom:1px dashed #ccc; padding:10px 0; font-size:13px; }
+        .inv-total { text-align:right; font-size:18px; font-weight:bold; margin-top:15px; border-top:2px solid #000; padding-top:10px; }
+        .close-btn { background:var(--red); color:#fff; width:100%; padding:10px; border-radius:8px; margin-top:20px; border:none; font-weight:bold; }
+        .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99; }
         .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
         .share-btn { padding: 10px 2px; background: #161b22; border: 1px solid #444; border-radius: 6px; text-align: center; font-size: 11px; color: var(--gray); }
         .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); }
-        .log-entry { padding: 10px; border-bottom: 1px solid #222; cursor: pointer; }
-        .log-entry:active { background: #222; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>1. 匯入遊戲結單</h2>
-    <select id="h-select" onchange="parseHistory()"></select>
-    <div id="preview-list">請選擇一筆包含金額的結單...</div>
-    <div style="display:flex; justify-content:space-between;">
-        <button class="btn-gold" onclick="processLedger(1)">📥 匯入此單</button>
-        <button class="btn-outline" onclick="processLedger(-1)">🔙 退回此單</button>
-    </div>
-</div>
-
-<div class="card">
-    <h2>2. 生活雜支分攤</h2>
+    <h2>1. 生活雜支分攤 (產生明細)</h2>
     <select id="payer-id"></select>
     <input type="number" id="exp-amt" placeholder="原始總金額" inputmode="decimal">
-    <input type="text" id="exp-note" placeholder="備註 (如：全聯買菜、錢櫃)">
-    <div style="font-size:12px; color:var(--gray); margin-bottom:5px;">點選參與分攤的人：</div>
+    <input type="text" id="exp-note" placeholder="項目用途 (如：錢櫃酒水)">
     <div id="share-grid" class="share-grid"></div>
-    <button style="width:100%; background:var(--green); color:#000;" onclick="submitExpense()">✅ 產生支出發票</button>
+    <button style="width:100%; background:var(--green); color:#000; padding:15px; border-radius:10px; font-weight:bold; border:none;" onclick="submitExpense()">✅ 登記發票</button>
 </div>
 
 <div class="card">
-    <h2>3. 數位發票存摺 (點擊查看明細)</h2>
-    <div id="change-log">讀取中...</div>
-    <div id="invoice-display" class="invoice"></div>
-</div>
-
-<div class="card">
-    <h2>4. 目前結餘清算</h2>
+    <h2>2. 目前債務匯總 (點名字看明細)</h2>
     <div id="ledger-list"></div>
-    <button style="width:100%; background:var(--blue); color:#000; margin-top:10px;" onclick="calculateSettle()">🔄 執行自動分配</button>
-    <div id="settle-results" style="margin-top:10px;"></div>
 </div>
 
-<button class="btn-outline" style="width:95%; margin: 10px auto; display:block; border-color:var(--red); color:var(--red);" onclick="clearAllData()">🧹 全體歸零 (需密碼)</button>
+<div id="overlay" class="overlay" onclick="closeInv()"></div>
+<div id="personal-invoice">
+    <div class="inv-head">
+        <h3 id="inv-user-name" style="margin:0;">對帳單</h3>
+        <small id="inv-date"></small>
+    </div>
+    <div id="inv-content"></div>
+    <div id="inv-footer" class="inv-total"></div>
+    <button class="close-btn" onclick="closeInv()">關閉明細</button>
+</div>
 
 <script>
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
-const ADMIN_PW = "8888"; 
 const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-let players = [], historyRaw = [], filteredHistory = [], parsedItems = [];
+let players = [], historyRaw = [];
 
 async function load() {
-    try {
-        const [pRes, hRes] = await Promise.all([
-            fetch(`${API_URL}/players?select=*&order=name`, { headers: HEADERS }),
-            fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=50`, { headers: HEADERS })
-        ]);
-        players = await pRes.json();
-        historyRaw = await hRes.json();
-        
-        // 嚴格過濾：必須包含 ":" 且不包含 "📝" 的才是遊戲結單
-        filteredHistory = historyRaw.filter(h => h.description && h.description.includes(':') && !h.description.includes('📝'));
-        
-        // 渲染日誌 (只顯示雜支分攤與匯入紀錄)
-        const logs = historyRaw.filter(h => h.description && (h.description.includes('📝') || h.description.includes('📥')));
-        document.getElementById('change-log').innerHTML = logs.map((l, i) => `
-            <div class="log-entry" onclick="showInvoice(${i}, 'log')">
-                <b>${new Date(l.created_at).toLocaleTimeString()}</b> - ${l.description.split('\n')[0]} 🔍
-            </div>
-        `).join('') || "尚無發票紀錄";
-
-        renderUI();
-    } catch (e) { console.error(e); }
+    const [pRes, hRes] = await Promise.all([
+        fetch(`${API_URL}/players?select=*&order=name`, { headers: HEADERS }),
+        fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=100`, { headers: HEADERS })
+    ]);
+    players = await pRes.json();
+    historyRaw = await hRes.json();
+    render();
 }
 
-function renderUI() {
-    const sel = document.getElementById('h-select');
-    sel.innerHTML = '<option value="">-- 選擇遊戲結單 (${filteredHistory.length}筆) --</option>' + 
-        filteredHistory.map((h, i) => `<option value="${i}">${new Date(h.created_at).toLocaleString('zh-TW')} - ${h.description.substring(0,10)}</option>`).join('');
-
+function render() {
     document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
     document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn active" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
     
-    document.getElementById('ledger-list').innerHTML = players.filter(p => Math.abs(p.debt || 0) > 0.1).map(p => `
-        <div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #333;">
-            <span>${p.name.replace('OFF_','')}</span><b>${Math.round(p.debt)}</b>
+    document.getElementById('ledger-list').innerHTML = players.map(p => `
+        <div class="ledger-row" onclick="showPersonalInv('${p.name}')">
+            <span>👤 ${p.name.replace('OFF_','')} <small style="color:var(--gray)">(點擊看明細)</small></span>
+            <b style="color:${p.debt >= 0 ? 'var(--green)' : 'var(--red)'}">${Math.round(p.debt)}</b>
         </div>`).join('');
 }
 
-function parseHistory() {
-    const idx = document.getElementById('h-select').value;
-    const box = document.getElementById('preview-list');
-    if(idx==="") return;
-    let desc = filteredHistory[idx].description;
-    let raw = desc.includes('結單') ? desc.split(/結單[：:]/)[1] : desc;
-    parsedItems = raw.split('|').map(s => {
-        let pair = s.split(/[:：(]/);
-        if (pair.length >= 2) return { name: pair[0].trim(), amt: parseFloat(pair[1].replace(/[()]/g, '')) };
-        return null;
-    }).filter(x => x && !isNaN(x.amt));
-    box.innerHTML = parsedItems.map(item => `<div>${item.name}: ${item.amt}</div>`).join('');
-}
+function showPersonalInv(userName) {
+    const shortName = userName.replace('OFF_','');
+    document.getElementById('inv-user-name').innerText = shortName + " 的應付明細";
+    document.getElementById('inv-date').innerText = "產生時間: " + new Date().toLocaleString();
+    
+    let html = "";
+    let totalCalc = 0;
 
-function showInvoice(idx, type) {
-    const logs = historyRaw.filter(h => h.description && (h.description.includes('📝') || h.description.includes('📥')));
-    const data = logs[idx];
-    const inv = document.getElementById('invoice-display');
-    inv.style.display = "block";
-    inv.innerHTML = `
-        <div class="inv-title">ELITE LEDGER 發票明細</div>
-        <div class="inv-row"><span>時間:</span><span>${new Date(data.created_at).toLocaleString()}</span></div>
-        <div style="border-bottom:1px dashed #ccc; margin:10px 0;"></div>
-        <div style="white-space: pre-wrap;">${data.description}</div>
-        <div style="border-top:1px dashed #000; margin-top:10px; padding-top:5px; text-align:center; font-size:10px;">感謝您的分攤，帳目已自動更新。</div>
-    `;
-    inv.scrollIntoView({ behavior: 'smooth' });
-}
-
-async function processLedger(side) {
-    if(!parsedItems.length) return alert("請選單");
-    const pw = prompt("密碼："); if(pw !== ADMIN_PW) return;
-
-    let invoiceText = `📥 匯入結單明細 (${side>0?'加帳':'退回'})\n----------------\n`;
-    for(let item of parsedItems) {
-        const p = players.find(x => x.name.includes(item.name));
-        if(p) {
-            const latest = await fetch(`${API_URL}/players?id=eq.${p.id}&select=debt`, { headers: HEADERS }).then(r => r.json());
-            await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: (latest[0]?.debt || 0) + (item.amt * side) }) });
-            invoiceText += `${item.name}: ${item.amt * side}\n`;
+    // 掃描歷史紀錄，找出與此人有關的項目
+    historyRaw.forEach(h => {
+        const desc = h.description;
+        // 1. 處理遊戲結單匯入
+        if (desc.includes(':') && desc.includes(shortName) && !desc.includes('📝')) {
+            let val = extractValue(desc, shortName);
+            if (val !== 0) {
+                html += `<div class="inv-item"><div style="display:flex; justify-content:space-between;"><span>🎮 遊戲結單 (${new Date(h.created_at).toLocaleDateString()})</span><b>${val > 0 ? '+' : ''}${val}</b></div></div>`;
+                totalCalc += val;
+            }
         }
-    }
-    await fetch(`${API_URL}/history`, { method: 'POST', headers: HEADERS, body: JSON.stringify({ description: invoiceText, type: 'log' }) });
-    alert("匯入成功"); load();
+        // 2. 處理雜支分攤 (📝)
+        if (desc.includes('📝') && desc.includes(shortName)) {
+            let lines = desc.split('\n');
+            let note = lines[1] || "";
+            let perAmtLine = lines.find(l => l.includes(shortName) && l.includes('-$'));
+            if (perAmtLine) {
+                let val = parseFloat(perAmtLine.split('-$')[1]);
+                html += `<div class="inv-item">
+                    <div style="font-weight:bold;">${note}</div>
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#666;">
+                        <span>${lines[2]} / ${lines[3]}</span>
+                        <b style="color:red">-${val}</b>
+                    </div>
+                </div>`;
+                totalCalc -= val;
+            }
+        }
+    });
+
+    document.getElementById('inv-content').innerHTML = html || "<div style='text-align:center; padding:20px;'>暫無明細紀錄</div>";
+    document.getElementById('inv-footer').innerHTML = `總計應收/付：$${Math.round(totalCalc)}`;
+    document.getElementById('overlay').style.display = "block";
+    document.getElementById('personal-invoice').style.display = "block";
+}
+
+function extractValue(desc, name) {
+    let part = desc.split('|').find(s => s.includes(name));
+    if(!part) return 0;
+    let num = part.split(/[:：(]/)[1];
+    return num ? parseFloat(num.replace(/[()]/g, '')) : 0;
+}
+
+function closeInv() {
+    document.getElementById('overlay').style.display = "none";
+    document.getElementById('personal-invoice').style.display = "none";
 }
 
 async function submitExpense() {
@@ -165,42 +143,25 @@ async function submitExpense() {
 
     const per = amt / selectedIds.length;
     const payer = players.find(x => x.id == pId);
-    let invoiceText = `📝 生活雜支發票\n項目: ${note}\n墊付人: ${payer.name.replace('OFF_','')}\n總金額: $${amt}\n----------------\n分攤明細:\n`;
+    
+    // 建立明細文字
+    let invoiceText = `📝 生活雜支發票\n項目: ${note}\n墊付人: ${payer.name.replace('OFF_','')}\n總金額: $${amt}\n分攤明細:\n`;
+    selectedIds.forEach(id => {
+        let name = players.find(x => x.id == id).name.replace('OFF_','');
+        invoiceText += `${name}: -$${Math.round(per)}\n`;
+    });
 
     for(let p of players) {
         let diff = 0;
         if(p.id == pId) diff += amt;
-        if(selectedIds.includes(String(p.id))) {
-            diff -= per;
-            invoiceText += `${p.name.replace('OFF_','')}: -$${Math.round(per)}\n`;
-        }
+        if(selectedIds.includes(String(p.id))) diff -= per;
         if(Math.abs(diff) > 0.1) {
             const latest = await fetch(`${API_URL}/players?id=eq.${p.id}&select=debt`, { headers: HEADERS }).then(r => r.json());
             await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: (latest[0]?.debt || 0) + diff }) });
         }
     }
     await fetch(`${API_URL}/history`, { method: 'POST', headers: HEADERS, body: JSON.stringify({ description: invoiceText, type: 'log' }) });
-    document.getElementById('exp-amt').value = ''; document.getElementById('exp-note').value = '';
-    alert("發票已產生並入帳"); load();
-}
-
-function calculateSettle() {
-    let d = players.filter(p => Math.abs(p.debt || 0)>0.5).map(p => ({n:p.name.replace('OFF_',''), a:Math.round(p.debt)}));
-    let r = d.filter(x => x.a > 0).sort((a,b)=>b.a-a.a), p = d.filter(x => x.a < 0).map(x => ({n:x.n, a:Math.abs(x.a)})).sort((a,b)=>b.a-a.a);
-    let res = [], i=0, j=0;
-    while(i<p.length && j<r.length) {
-        let m = Math.min(p[i].a, r[j].a);
-        res.push(`<div style="background:#000; padding:10px; border-radius:8px; margin-bottom:5px; border-left:4px solid var(--gold); display:flex; justify-content:space-between;"><span>${p[i].n} ➔ ${r[j].n}</span><b>$${m}</b></div>`);
-        p[i].a-=m; r[j].a-=m; if(p[i].a===0) i++; if(r[j].a===0) j++;
-    }
-    document.getElementById('settle-results').innerHTML = res.join('') || "帳目已平";
-}
-
-async function clearAllData() {
-    const pw = prompt("密碼："); if(pw !== ADMIN_PW) return;
-    for(let p of players) await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: 0, money: 0 }) });
-    await fetch(`${API_URL}/history`, { method: 'POST', headers: HEADERS, body: JSON.stringify({ description: "🧹 全體歸零發票\n管理員執行了清帳動作。", type: 'log' }) });
-    alert("已歸零"); load();
+    alert("分攤成功"); document.getElementById('exp-amt').value = ''; load();
 }
 
 load();
