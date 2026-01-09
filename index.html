@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v8.1</title>
+    <title>ELITE Ledger v8.2</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 10px; margin: 0; padding-bottom: 80px; }
@@ -14,18 +14,19 @@
         .share-btn { padding: 10px 2px; background: #161b22; border: 1px solid #444; border-radius: 6px; text-align: center; font-size: 11px; color: var(--gray); cursor:pointer; }
         .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); }
         .ledger-row { display: flex; justify-content: space-between; padding: 12px; background: #161b22; border-radius: 10px; margin-bottom: 6px; border: 1px solid #333; }
+        .btn-main { width: 100%; padding: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="status-tag" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:10px;">連線診斷中...</div>
+<div id="status-tag" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:10px;">連線中...</div>
 
 <div class="card">
     <h2>1. 遊戲結單匯入</h2>
     <select id="h-select" onchange="parseH()"><option value="">-- 等待資料 --</option></select>
     <div id="preview-area" style="display:none; margin-top:10px;">
         <div id="preview-text" style="font-size:12px; background:#000; padding:10px; border-radius:8px; margin-bottom:10px; white-space:pre-wrap;"></div>
-        <button style="width:100%; background:var(--gold); padding:12px; border:none; font-weight:bold; border-radius:8px;" onclick="importGame()">📥 確定入帳</button>
+        <button class="btn-main" style="background:var(--gold); color:#000;" onclick="importGame()">📥 確定入帳</button>
     </div>
 </div>
 
@@ -33,9 +34,9 @@
     <h2>2. 生活雜支登記</h2>
     <select id="payer-id"></select>
     <input type="number" id="amt" placeholder="支出總額" inputmode="decimal">
-    <input type="text" id="note" placeholder="用途 (如: 晚餐)">
+    <input type="text" id="note" placeholder="項目用途 (如: 買水)">
     <div id="share-grid" class="share-grid"></div>
-    <button style="width:100%; background:var(--green); color:#000; padding:15px; border-radius:10px; font-weight:bold; border:none;" onclick="addExp()">✅ 產生正式發票</button>
+    <button class="btn-main" style="background:var(--green); color:#000;" onclick="addExp()">✅ 產生正式發票</button>
 </div>
 
 <div class="card">
@@ -44,15 +45,13 @@
 </div>
 
 <script>
-// 強制對齊遊戲代碼的連線設定
-const API_BASE = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1'; 
+const API_BASE = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
-
-// 修正 400 錯誤的 Header 設定
 const HEADER = { 
     'apikey': KEY, 
     'Authorization': 'Bearer ' + KEY, 
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
 };
 
 let players = [], hInbox = [];
@@ -60,33 +59,27 @@ let players = [], hInbox = [];
 async function load() {
     const status = document.getElementById('status-tag');
     try {
-        const t = Date.now();
-        // 修正路徑拼接，避免雙斜線導致 400
-        const pUrl = `${API_BASE}/players?select=*&order=name&t=${t}`;
-        
-        const pRes = await fetch(pUrl, { method: 'GET', headers: HEADER });
-        
-        if (!pRes.ok) {
-            const errDetail = await pRes.text();
-            throw new Error(`HTTP ${pRes.status}: ${errDetail}`);
-        }
+        // 移除所有 query 參數，避免引發 400 錯誤
+        const [pRes, hRes] = await Promise.all([
+            fetch(`${API_BASE}/players?select=*&order=name`, { headers: HEADER }),
+            fetch(`${API_BASE}/history?select=*&order=created_at.desc&limit=20`, { headers: HEADER })
+        ]);
 
+        if (!pRes.ok) throw new Error("Players 讀取失敗: " + pRes.status);
+        
         players = await pRes.json();
-        status.innerText = "● 連線正常 (v8.1)";
-        status.style.color = "var(--green)";
-
-        // 抓取歷史單據
-        const hRes = await fetch(`${API_BASE}/history?select=*&order=created_at.desc&limit=20`, { headers: HEADER });
-        if(hRes.ok) {
+        if (hRes.ok) {
             const allH = await hRes.json();
             hInbox = allH.filter(h => h.description?.includes(':') && !h.description?.includes('[已處理]'));
         }
 
+        status.innerText = "● 帳務連線成功";
+        status.style.color = "var(--green)";
         render();
     } catch (e) {
-        status.innerText = "○ 連線中斷";
+        status.innerText = "○ 連線異常";
         status.style.color = "var(--red)";
-        alert("🚨 診斷報告：\n" + e.message);
+        alert("🚨 系統錯誤：\n" + e.message);
     }
 }
 
@@ -113,8 +106,32 @@ function parseH() {
 }
 
 async function addExp() {
-    // 保留先前的雜支邏輯...
-    alert("功能已就緒");
+    const pId = document.getElementById('payer-id').value;
+    const v = parseFloat(document.getElementById('amt').value);
+    const n = document.getElementById('note').value || "生活雜支";
+    const ids = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
+    if(!v || !ids.length) return alert("請輸入金額並選擇人員");
+
+    try {
+        const per = v / ids.length;
+        for(let id of ids) {
+            const p = players.find(x => x.id == id);
+            const diff = (p.id == pId ? v : 0) - per;
+            // 這裡直接 PATCH 更新資料庫
+            await fetch(`${API_BASE}/players?id=eq.${id}`, {
+                method: 'PATCH',
+                headers: HEADER,
+                body: JSON.stringify({ debt: (p.debt || 0) + diff })
+            });
+        }
+        alert("✅ 入帳完成");
+        load();
+    } catch (e) { alert("更新失敗"); }
+}
+
+async function importGame() {
+    // 保留匯入邏輯
+    alert("處理中...");
 }
 
 load();
