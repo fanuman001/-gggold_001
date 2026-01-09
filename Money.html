@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ELITE Pay - 債務結算</title>
+    <style>
+        :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 12px; }
+        .card { background: var(--card); padding: 18px; border-radius: 20px; margin-bottom: 12px; border: 1px solid var(--border); }
+        
+        /* 輸入區樣式 */
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        select, input { background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 10px; font-size: 16px; }
+        
+        /* 朋友清單 */
+        .friend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin: 10px 0; }
+        .p-chip { padding: 10px; background: #21262d; border: 2px solid #30363d; border-radius: 12px; text-align: center; font-size: 14px; opacity: 0.5; }
+        .p-chip.active { opacity: 1; border-color: var(--blue); color: var(--blue); }
+
+        /* 債務顯示 */
+        .debt-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #333; }
+        .debt-val { font-weight: bold; font-size: 18px; }
+        .btn-settle { background: var(--green); color: #000; border: none; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+
+        .btn-main { width: 100%; padding: 16px; background: var(--blue); color: #000; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2 style="margin-top:0; color:var(--gold);">➕ 新增支出</h2>
+    <div class="input-group">
+        <label>誰墊錢？</label>
+        <select id="payer"></select>
+        
+        <label>總金額</label>
+        <input type="number" id="amount" placeholder="例如：1200">
+        
+        <label>誰要分攤？(多選)</label>
+        <div id="friend-selector" class="friend-grid"></div>
+    </div>
+    <button class="btn-main" onclick="addExpense()">確認新增支出</button>
+</div>
+
+<div class="card">
+    <h2 style="margin-top:0; color:var(--blue);">📊 債務餘額</h2>
+    <div id="debt-list"></div>
+    <button onclick="clearAll()" style="width:100%; margin-top:20px; background:none; border:1px solid var(--red); color:var(--red); padding:10px; border-radius:10px;">⚠️ 全部清零結案</button>
+</div>
+
+<script>
+    // 初始名單，之後可從你的資料庫讀取
+    let friends = ["阿明", "小華", "大強", "老王", "杰哥"];
+    let balances = {}; // 存儲每個人的餘額
+    let selectedSharebers = new Set();
+
+    function init() {
+        const payerSelect = document.getElementById('payer');
+        const selector = document.getElementById('friend-selector');
+        
+        friends.forEach(name => {
+            balances[name] = 0;
+            // 填充下拉選單
+            payerSelect.innerHTML += `<option value="${name}">${name}</option>`;
+            // 填充多選區
+            selector.innerHTML += `<div class="p-chip" id="chip-${name}" onclick="toggleShare('${name}')">${name}</div>`;
+        });
+        render();
+    }
+
+    function toggleShare(name) {
+        if(selectedSharebers.has(name)) selectedSharebers.delete(name);
+        else selectedSharebers.add(name);
+        document.getElementById(`chip-${name}`).classList.toggle('active');
+    }
+
+    function addExpense() {
+        const payer = document.getElementById('payer').value;
+        const amt = parseFloat(document.getElementById('amount').value);
+        
+        if(!amt || selectedSharebers.size === 0) return alert("請輸入金額並選擇分攤人");
+
+        const shareAmt = amt / selectedSharebers.size;
+
+        // 計算邏輯：墊錢的人餘額增加，被分攤的人餘額減少
+        // 這裡如果是 payer 本人也有分攤，邏輯依然正確（加回又扣除）
+        friends.forEach(name => {
+            if (name === payer) {
+                balances[name] += amt; // 墊錢的人暫時拿回全額
+            }
+            if (selectedSharebers.has(name)) {
+                balances[name] -= shareAmt; // 參與分攤的人扣除應付份額
+            }
+        });
+
+        // 重置輸入
+        document.getElementById('amount').value = '';
+        render();
+        alert(`新增成功！${payer} 墊付了 ${amt}元`);
+    }
+
+    function settleOne(name) {
+        if(confirm(`確認 ${name} 的帳務已結清？`)) {
+            balances[name] = 0;
+            render();
+        }
+    }
+
+    function clearAll() {
+        if(confirm("確定要將所有債務清零嗎？此動作不可逆。")) {
+            friends.forEach(name => balances[name] = 0);
+            render();
+        }
+    }
+
+    function render() {
+        const list = document.getElementById('debt-list');
+        list.innerHTML = "";
+        
+        friends.forEach(name => {
+            const val = Math.round(balances[name]);
+            let color = "var(--gray)";
+            let prefix = "";
+            
+            if (val > 0) { color = "var(--green)"; prefix = "可收回 $"; }
+            else if (val < 0) { color = "var(--red)"; prefix = "應還款 $"; }
+            else { prefix = "已結清 $"; }
+
+            list.innerHTML += `
+                <div class="debt-item">
+                    <div>
+                        <b>${name}</b><br>
+                        <small style="color:${color}">${prefix}${Math.abs(val)}</small>
+                    </div>
+                    ${val !== 0 ? `<button class="btn-settle" onclick="settleOne('${name}')">已結</button>` : ''}
+                </div>
+            `;
+        });
+    }
+
+    init();
+</script>
+</body>
+</html>
+
