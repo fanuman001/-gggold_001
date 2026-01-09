@@ -3,52 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v9.1</title>
+    <title>ELITE Ledger v9.5</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 12px; margin: 0; padding-bottom: 50px; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 12px; margin: 0; padding-bottom: 60px; }
         .card { background: var(--card); padding: 16px; border-radius: 16px; margin-bottom: 14px; border: 1px solid var(--border); }
-        h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-        h2::before { content: ""; width: 3px; height: 15px; background: var(--blue); border-radius: 10px; }
-        select, input { width: 100%; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
+        h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 15px; border-left: 3px solid var(--blue); padding-left: 8px; }
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
         .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
         .share-btn { padding: 10px 2px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; text-align: center; font-size: 12px; color: var(--gray); cursor: pointer; }
-        .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); font-weight: bold; }
-        .ledger-row { display: flex; justify-content: space-between; padding: 14px; background: #161b22; border-radius: 12px; margin-bottom: 8px; border: 1px solid #30363d; }
-        .btn { width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; font-size: 15px; }
-        .btn-gold { background: var(--gold); color: #000; }
-        .btn-green { background: var(--green); color: #000; }
-        .btn-red { background: none; border: 1px solid var(--red); color: var(--red); margin-top: 20px; font-size: 12px; padding: 8px; }
-        #loading { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; z-index:999; flex-direction:column; }
+        .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); }
+        .ledger-row { display: flex; justify-content: space-between; padding: 14px; background: #161b22; border-radius: 12px; margin-bottom: 8px; border: 1px solid #333; cursor: pointer; }
+        .btn { width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:100; overflow-y:auto; padding:20px; box-sizing:border-box; }
+        .inv-box { background:#fff; color:#333; border-radius:10px; padding:20px; font-family: monospace; }
+        .inv-item { border-bottom:1px dashed #ccc; padding:8px 0; display:flex; justify-content:space-between; font-size:13px; }
     </style>
 </head>
 <body>
 
-<div id="loading"><div id="msg">處理中...</div></div>
-<div id="status" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:12px;">正在連線...</div>
+<div id="status" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:10px;">連線中...</div>
 
 <div class="card">
-    <h2>1. 遊戲單據自動入帳</h2>
-    <select id="h-select" onchange="parseH()"><option value="">讀取單據中...</option></select>
+    <h2>1. 遊戲結單匯入 (多行解析)</h2>
+    <select id="h-select" onchange="parseH()"><option value="">讀取單據...</option></select>
     <div id="preview-area" style="display:none; margin-top:10px;">
-        <div id="preview-text" style="font-size:12px; background:#000; padding:12px; border-radius:10px; margin-bottom:12px; white-space:pre-wrap; border: 1px dashed #444;"></div>
-        <button class="btn btn-gold" onclick="importGame()">📥 確認結果並同步至雲端</button>
+        <div id="preview-text" style="font-size:12px; background:#000; padding:12px; border-radius:10px; margin-bottom:10px; white-space:pre-wrap; color:var(--gold);"></div>
+        <button class="btn" style="background:var(--gold);" onclick="importGame()">📥 批次同步所有球員</button>
     </div>
 </div>
 
 <div class="card">
-    <h2>2. 生活雜支登記</h2>
+    <h2>2. 生活雜支分帳</h2>
     <select id="payer-id"></select>
-    <input type="number" id="amt" placeholder="總金額" inputmode="decimal">
-    <input type="text" id="note" placeholder="備註">
+    <input type="number" id="amt" placeholder="支出總金額" inputmode="decimal">
+    <input type="text" id="note" placeholder="備註用途">
     <div id="share-grid" class="share-grid"></div>
-    <button class="btn btn-green" onclick="addExp()">✅ 提交分帳</button>
+    <button class="btn" style="background:var(--green);" onclick="addExp()">✅ 送出分帳</button>
 </div>
 
 <div class="card">
-    <h2>3. 帳務中心</h2>
+    <h2>3. 帳務中心 (點擊看個人發票)</h2>
     <div id="ledger-list"></div>
-    <button class="btn btn-red" onclick="resetAll()">🧹 全體歸零並重置起始時間</button>
+    <button class="btn" style="background:none; border:1px solid var(--blue); color:var(--blue); margin-top:10px;" onclick="showAllInv()">📑 查看全部發票明細</button>
+</div>
+
+<button class="btn" style="background:none; color:var(--red); font-size:12px;" onclick="resetAll()">🧹 全體歸零</button>
+
+<div id="inv-modal" class="modal">
+    <div class="inv-box">
+        <h3 id="inv-title" style="text-align:center; margin-top:0;">發票明細</h3>
+        <div id="inv-content"></div>
+        <div id="inv-total" style="text-align:right; font-weight:bold; font-size:18px; margin-top:15px; border-top:2px solid #333;"></div>
+        <button class="btn" style="background:#333; color:#fff; margin-top:20px;" onclick="closeModal()">關閉明細</button>
+    </div>
 </div>
 
 <script>
@@ -56,143 +64,141 @@ const API = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
 const HEAD = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-let players = [], hInbox = [], lastResetTime = "2000-01-01T00:00:00";
+let players = [], hInbox = [], logs = [], lastReset = "2000-01-01";
 
 async function load() {
-    toggleL(true, "同步資料...");
     try {
-        const [pRes, hRes] = await Promise.all([
+        const [pRes, hRes, lRes] = await Promise.all([
             fetch(`${API}/players?select=*&order=name`, { headers: HEAD }),
-            fetch(`${API}/history?select=*&order=created_at.desc`, { headers: HEAD })
+            fetch(`${API}/history?select=*&order=created_at.desc`, { headers: HEAD }),
+            fetch(`${API}/ledger_logs?select=*&order=created_at.desc&limit=100`, { headers: HEAD })
         ]);
-        
         players = await pRes.json();
         const allH = await hRes.json();
+        logs = lRes.ok ? await lRes.json() : [];
 
-        // 找尋最後一次歸零的時間標記
-        const resetRecord = allH.find(h => h.description?.includes("【系統指令：歸零重置】"));
-        if(resetRecord) lastResetTime = resetRecord.created_at;
+        const rs = allH.find(h => h.description?.includes("歸零"));
+        lastReset = rs ? rs.created_at : "2000-01-01";
+        hInbox = allH.filter(h => h.description?.includes(':') && !h.description?.includes('[已處理]') && h.created_at > lastReset);
 
-        // 過濾：1.必須有冒號 2.不可有[已處理] 3.必須在最後歸零時間之後
-        hInbox = allH.filter(h => 
-            h.description?.includes(':') && 
-            !h.description?.includes('[已處理]') &&
-            h.created_at > lastResetTime
-        );
-
-        document.getElementById('status').innerText = "● 雲端已同步 (起始點: " + new Date(lastResetTime).toLocaleString() + ")";
+        document.getElementById('status').innerText = "● 同步完成";
         render();
-    } catch (e) { alert("連線失敗"); }
-    finally { toggleL(false); }
+    } catch (e) { document.getElementById('status').innerText = "○ 連線異常"; }
 }
 
 function render() {
     const s = document.getElementById('h-select');
-    s.innerHTML = hInbox.length ? `<option value="">-- 有 ${hInbox.length} 筆新結單 --</option>` : '<option value="">(目前無新單據)</option>';
-    hInbox.forEach((h, i) => s.innerHTML += `<option value="${i}">${new Date(h.created_at).toLocaleTimeString()} | ${h.description.substring(0,10)}...</option>`);
+    s.innerHTML = hInbox.length ? `<option value="">-- 有 ${hInbox.length} 筆待入帳 --</option>` : '<option value="">(無新單據)</option>';
+    hInbox.forEach((h, i) => s.innerHTML += `<option value="${i}">${new Date(h.created_at).toLocaleTimeString()} | 預覽單據</option>`);
 
     document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
     document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn active" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
-    document.getElementById('ledger-list').innerHTML = players.map(p => `<div class="ledger-row"><span>👤 ${p.name.replace('OFF_','')}</span><b style="color:${(p.debt||0)>=0?'var(--green)':'var(--red)'}">${Math.round(p.debt||0)}</b></div>`).join('');
-}
-
-function parseH() {
-    const idx = document.getElementById('h-select').value;
-    if(idx==="") return document.getElementById('preview-area').style.display="none";
-    document.getElementById('preview-text').innerText = hInbox[idx].description;
-    document.getElementById('preview-area').style.display = "block";
+    document.getElementById('ledger-list').innerHTML = players.map(p => `
+        <div class="ledger-row" onclick="showPersonalInv('${p.name}')">
+            <span>👤 ${p.name.replace('OFF_','')}</span>
+            <b style="color:${(p.debt||0)>=0?'var(--green)':'var(--red)'}">${Math.round(p.debt||0)}</b>
+        </div>`).join('');
 }
 
 async function importGame() {
     const idx = document.getElementById('h-select').value;
-    const desc = hInbox[idx].description;
-    const lines = desc.split('\n');
+    const lines = hInbox[idx].description.split(/[\n,]/); // 支援換行或逗號分割
     let count = 0;
 
-    toggleL(true, "正在匹配人員並入帳...");
-    
     for(let line of lines) {
         if(!line.includes(':')) continue;
         const [n, a] = line.split(':');
         const amt = parseFloat(a);
-        if(isNaN(amt)) continue;
-
-        // 增強型匹配：忽略空格，且包含匹配
-        const cleanN = n.trim();
-        const p = players.find(x => x.name.includes(cleanN) || cleanN.includes(x.name.replace('OFF_','')));
-
-        if(p) {
-            await fetch(`${API}/players?id=eq.${p.id}`, {
-                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + amt })
-            });
+        const p = players.find(x => x.name.includes(n.trim()) || n.trim().includes(x.name.replace('OFF_','')));
+        if(p && !isNaN(amt)) {
+            await fetch(`${API}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + amt }) });
+            // 寫入日誌
+            await fetch(`${API}/ledger_logs`, { method: 'POST', headers: HEAD, body: JSON.stringify({ type:'game', note:'遊戲結算', payer_name: p.name, total_amount: amt }) });
             count++;
         }
     }
-
-    if(count === 0) {
-        alert("解析失敗！請確認單據格式為「名字:金額」，且名字與成員名單相符。");
-    } else {
-        // 標記已處理
-        await fetch(`${API}/history?id=eq.${hInbox[idx].id}`, {
-            method: 'PATCH', headers: HEAD, body: JSON.stringify({ description: desc + "\n[已處理]" })
-        });
-        alert(`成功入帳 ${count} 位成員！`);
-        load();
-    }
-    toggleL(false);
+    await fetch(`${API}/history?id=eq.${hInbox[idx].id}`, { method: 'PATCH', headers: HEAD, body: JSON.stringify({ description: hInbox[idx].description + " [已處理]" }) });
+    alert(`入帳成功：共更新 ${count} 人`); load();
 }
 
 async function addExp() {
     const pId = document.getElementById('payer-id').value;
     const v = parseFloat(document.getElementById('amt').value);
+    const n = document.getElementById('note').value || "雜支";
     const ids = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
-    if(!v || !ids.length) return alert("請輸入金額與選擇人員");
+    if(!v || !ids.length) return;
 
-    toggleL(true, "處理分帳...");
     const per = v / ids.length;
+    const payer = players.find(x => x.id == pId);
+
     for(let p of players) {
-        let diff = (p.id == pId ? v : 0) - (ids.includes(p.id.toString()) ? per : 0);
-        if(diff !== 0) {
-            await fetch(`${API}/players?id=eq.${p.id}`, {
-                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + diff })
-            });
+        let diff = 0;
+        // 如果我是墊付者，我應收 = 總額 - 我那份 = (總額 - 每人分攤)
+        if(p.id == pId) diff += v; 
+        if(ids.includes(p.id.toString())) diff -= per;
+
+        if(Math.abs(diff) > 0.1) {
+            await fetch(`${API}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + diff }) });
         }
     }
-    document.getElementById('amt').value = "";
-    alert("✅ 雜支入帳完成");
-    load();
-    toggleL(false);
+    // 寫入分帳日誌
+    await fetch(`${API}/ledger_logs`, { method: 'POST', headers: HEAD, body: JSON.stringify({ type:'expense', note:n, payer_name: payer.name, total_amount: v, participants: ids.length, per_share: per }) });
+    alert("分帳完成"); load();
 }
 
-async function resetAll() {
-    if(!confirm("確定要將所有餘額歸零，並忽略之前的所有單據嗎？")) return;
-    const pw = prompt("請輸入管理密碼 (8888):");
-    if(pw !== "8888") return;
-
-    toggleL(true, "執行歸零重置...");
-    try {
-        // 1. 所有人餘額歸零
-        for(let p of players) {
-            await fetch(`${API}/players?id=eq.${p.id}`, {
-                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: 0 })
-            });
+function showPersonalInv(name) {
+    const sN = name.replace('OFF_','');
+    let html = "", total = 0;
+    logs.filter(l => l.created_at > lastReset).forEach(l => {
+        if(l.type === 'game' && l.payer_name.includes(sN)) {
+            html += `<div class="inv-item"><span>🎮 遊戲結算</span><span>${Math.round(l.total_amount)}</span></div>`;
+            total += l.total_amount;
+        } else if(l.type === 'expense') {
+            const isP = l.payer_name.includes(sN);
+            // 這裡簡化判斷，需配合 participants
+            if(isP) {
+                const myShare = l.total_amount - l.per_share;
+                html += `<div class="inv-item"><span>💸 ${l.note}(墊付)</span><span>+${Math.round(myShare)}</span></div>`;
+                total += myShare;
+            } else {
+                html += `<div class="inv-item"><span>🍽️ ${l.note}(平分)</span><span>-${Math.round(l.per_share)}</span></div>`;
+                total -= l.per_share;
+            }
         }
-        // 2. 插入一條「歸零時間戳記」到 history
-        await fetch(`${API}/history`, {
-            method: 'POST', headers: HEAD,
-            body: JSON.stringify({ description: "【系統指令：歸零重置】\n此時間點之前的單據將不再讀取。" })
-        });
-        alert("歸零成功！舊單據已自動過濾。");
-        load();
-    } catch(e) { alert("重置失敗"); }
-    finally { toggleL(false); }
+    });
+    openModal(sN + " 個人發票", html, total);
 }
 
-function toggleL(s, m) {
-    document.getElementById('loading').style.display = s ? "flex" : "none";
-    document.getElementById('msg').innerText = m || "";
+function showAllInv() {
+    let html = logs.filter(l => l.created_at > lastReset).map(l => `
+        <div class="inv-item">
+            <span>${new Date(l.created_at).toLocaleDateString()} ${l.note}</span>
+            <span>${Math.round(l.total_amount)}</span>
+        </div>
+    `).join('');
+    openModal("全體帳務日誌", html, "");
 }
 
+function openModal(t, c, tot) {
+    document.getElementById('inv-title').innerText = t;
+    document.getElementById('inv-content').innerHTML = c || "無紀錄";
+    document.getElementById('inv-total').innerText = tot !== "" ? "總餘額: " + Math.round(tot) : "";
+    document.getElementById('inv-modal').style.display = 'block';
+}
+
+function closeModal() { document.getElementById('inv-modal').style.display='none'; }
+function parseH() {
+    const idx = document.getElementById('h-select').value;
+    if(idx==="") return;
+    document.getElementById('preview-text').innerText = hInbox[idx].description;
+    document.getElementById('preview-area').style.display = "block";
+}
+async function resetAll() {
+    if(prompt("密碼 8888") !== "8888") return;
+    for(let p of players) await fetch(`${API}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: 0 }) });
+    await fetch(`${API}/history`, { method: 'POST', headers: HEAD, body: JSON.stringify({ description: "【全體歸零】" }) });
+    location.reload();
+}
 load();
 </script>
 </body>
