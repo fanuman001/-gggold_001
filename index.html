@@ -3,150 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v3.0</title>
+    <title>ELITE Ledger v4.0 - 訂單導入版</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 15px; }
         .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); }
         h2 { color: var(--gold); margin: 0 0 15px 0; font-size: 18px; }
-        
-        /* 表單 */
         select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; }
         .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
-        .share-btn { padding: 10px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--gray); }
+        .share-btn { padding: 10px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 11px; cursor: pointer; color: var(--gray); }
         .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); }
-        .share-btn.is-off { border-style: dashed; } /* 標記下線者 */
-
-        /* 列表 */
         .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
-        .debt-val { font-size: 18px; font-weight: bold; }
-        
-        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 900; font-size: 16px; margin-top: 10px; cursor: pointer; }
-        .btn-merge { background: none; border: 1px solid var(--blue); color: var(--blue); padding: 4px 8px; border-radius: 6px; font-size: 11px; margin-top: 5px; }
+        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 900; font-size: 16px; cursor: pointer; }
+        .order-box { border: 1px dashed var(--gold); padding: 10px; border-radius: 10px; margin-bottom: 15px; background: rgba(255, 165, 2, 0.05); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>💸 新增分攤 (含下線成員)</h2>
+    <h2>📥 1. 讀取確定結單訂單</h2>
+    <div class="order-box">
+        <label style="font-size:12px; color:var(--gray);">從歷史紀錄選擇結單：</label>
+        <select id="history-select" onchange="previewOrder()"></select>
+        <div id="order-preview" style="font-size:12px; color:var(--gold); min-height:20px;"></div>
+        <button class="btn-main" style="background:var(--gold); color:#000; margin-top:10px; font-size:14px; padding:10px;" onclick="importOrder()">匯入此單金額到債務</button>
+    </div>
+</div>
+
+<div class="card">
+    <h2>💸 2. 生活雜支分攤</h2>
     <select id="payer-id"></select>
-    <input type="number" id="pay-amt" placeholder="輸入總金額" inputmode="decimal">
-    <div style="font-size:12px; color:var(--gray); margin-bottom:8px;">選擇分攤人 (虛線為下線者)：</div>
+    <input type="number" id="pay-amt" placeholder="總金額" inputmode="decimal">
     <div id="share-grid" class="share-grid"></div>
     <button class="btn-main" style="background:var(--green); color:#000;" onclick="submitLedger()">✅ 確認記帳</button>
 </div>
 
 <div class="card">
-    <h2>📊 財務清單</h2>
+    <h2>📊 3. 最終清算建議</h2>
     <div id="ledger-list"></div>
-    <button class="btn-main" style="background:var(--blue); color:#000;" onclick="calculateSettlements()">🔄 生成還錢建議</button>
-    
-    <div id="settle-area" class="hidden" style="margin-top:15px; border-top:1px solid #444; padding-top:15px;">
-        <div id="settle-results"></div>
-    </div>
+    <button class="btn-main" style="background:var(--blue); color:#000;" onclick="calculateSettlements()">🔄 智能分配：誰該給誰錢</button>
+    <div id="settle-results" style="margin-top:15px;"></div>
 </div>
 
-<div class="card" style="border-color: var(--red);">
-    <h2 style="color:var(--red);">⚠️ 危險區域</h2>
-    <p style="font-size:12px; color:var(--gray);">結算完成並付清錢後，按此按鈕將所有人的「遊戲額」與「雜支」歸零。</p>
-    <button class="btn-main" style="background:none; border:1px solid var(--red); color:var(--red);" onclick="clearAllData()">🧹 一鍵結清所有帳單</button>
-</div>
+<button class="btn-main" style="background:none; border:1px solid var(--red); color:var(--red); margin-bottom:50px;" onclick="clearDatabase()">🧹 結帳完成：一鍵歸零資料庫</button>
 
 <script>
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
 const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-let players = [];
+let players = [], history = [];
 
-async function fetchData() {
-    const res = await fetch(`${API_URL}/players?select=*&order=name`, { headers: HEADERS });
-    players = await res.json();
+async function init() {
+    const [pRes, hRes] = await Promise.all([
+        fetch(`${API_URL}/players?select=*`, { headers: HEADERS }),
+        fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=20`, { headers: HEADERS })
+    ]);
+    players = await pRes.json();
+    history = await hRes.json();
     render();
 }
 
 function render() {
-    // 渲染選擇區：顯示所有人，但用虛線區分下線
-    document.getElementById('payer-id').innerHTML = players.map(p => 
-        `<option value="${p.id}">${p.name.replace('OFF_','(💤)')}</option>`).join('');
-    
-    document.getElementById('share-grid').innerHTML = players.map(p => {
-        const isOff = p.name.startsWith('OFF_');
-        return `<div class="share-btn ${isOff?'is-off':''}" data-id="${p.id}" onclick="this.classList.toggle('active')">
-            ${p.name.replace('OFF_','')}
-        </div>`}).join('');
+    // 歷史訂單下拉
+    document.getElementById('history-select').innerHTML = '<option value="">請選擇一筆訂單...</option>' + 
+        history.map((h, i) => `<option value="${i}">${new Date(h.created_at).toLocaleString()} - ${h.note.substring(0,20)}...</option>`).join('');
 
-    // 渲染清單：顯示所有「有帳」的人
-    const hasAccount = players.filter(p => Math.abs(p.money || 0) > 0.1 || Math.abs(p.debt || 0) > 0.1 || !p.name.startsWith('OFF_'));
-    
-    document.getElementById('ledger-list').innerHTML = hasAccount.map(p => {
-        const d = Math.round(p.debt || 0);
-        const g = Math.round(p.money || 0);
-        const name = p.name.replace('OFF_', '💤 ');
-        return `
-            <div class="ledger-row" style="${p.name.startsWith('OFF_')?'opacity:0.6':''}">
-                <div>
-                    <b>${name}</b><br>
-                    <span style="font-size:11px; color:var(--gray);">🎮 遊戲確定結單: ${g}</span>
-                </div>
-                <div style="text-align:right">
-                    <div class="debt-val" style="color:${d>=0?'var(--green)':'var(--red)'}">${d>=0?'+'+d:d}</div>
-                    <button class="btn-merge" onclick="mergeFromGame(${p.id})">📥 併入</button>
-                </div>
-            </div>
-        `;
-    }).join('');
+    // 墊錢人選單 (所有人)
+    document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
+
+    // 分攤人選單 (所有人)
+    document.getElementById('share-grid').innerHTML = players.map(p => 
+        `<div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
+
+    // 總帳列表
+    document.getElementById('ledger-list').innerHTML = players.filter(p => Math.abs(p.debt||0) > 0.1).map(p => `
+        <div class="ledger-row">
+            <span>${p.name.replace('OFF_','')}</span>
+            <b style="color:${p.debt>=0?'var(--green)':'var(--red)'}">${Math.round(p.debt||0)}</b>
+        </div>`).join('');
 }
 
-// 記帳：支持所有人分攤
+function previewOrder() {
+    const idx = document.getElementById('history-select').value;
+    if(idx==="") return;
+    document.getElementById('order-preview').innerText = history[idx].note;
+}
+
+// 核心：從歷史訂單解析並匯入
+async function importOrder() {
+    const idx = document.getElementById('history-select').value;
+    if(idx==="") return;
+    const note = history[idx].note; // 格式: "秉軒:497 | 語婕:-502..."
+    
+    if(!confirm("確定匯入此訂單金額？這會直接增加各員債務。")) return;
+
+    const entries = note.split('|');
+    for(let entry of entries) {
+        const [rawName, rawAmt] = entry.split(':');
+        if(!rawName || !rawAmt) continue;
+        
+        const name = rawName.trim();
+        const amt = parseFloat(rawAmt.trim());
+        
+        // 尋找對應球員 (忽略 OFF_)
+        const player = players.find(p => p.name.replace('OFF_','') === name);
+        if(player) {
+            await patch(player.id, { debt: (player.debt || 0) + amt });
+        }
+    }
+    alert("匯入成功！");
+    init();
+}
+
 async function submitLedger() {
-    const pId = document.getElementById('payer-id').value;
+    const payerId = document.getElementById('payer-id').value;
     const amt = parseFloat(document.getElementById('pay-amt').value);
     const selected = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
-    if(!amt || selected.length === 0) return alert("請填寫金額與分攤人");
+    if(!amt || selected.length === 0) return;
     const per = amt / selected.length;
     for(let p of players) {
         let diff = 0;
-        if(p.id == pId) diff += amt;
+        if(p.id == payerId) diff += amt;
         if(selected.includes(String(p.id))) diff -= per;
-        if(Math.abs(diff) > 0.1) await patch(p.id, { debt: (p.debt || 0) + diff });
+        if(Math.abs(diff)>0.1) await patch(p.id, { debt: (p.debt||0) + diff });
     }
-    document.getElementById('pay-amt').value = '';
-    fetchData();
+    init();
 }
 
-// 一鍵結清 (歸零)
-async function clearAllData() {
-    if(!confirm("確定要將全體成員的遊戲額與雜支歸零嗎？此動作不可撤銷。")) return;
+function calculateSettlements() {
+    let data = players.filter(p => Math.abs(p.debt||0) > 0.5).map(p => ({ name: p.name.replace('OFF_',''), amount: Math.round(p.debt) }));
+    let res = [];
+    let r = data.filter(d => d.amount > 0).sort((a,b) => b.amount - a.amount);
+    let p = data.filter(d => d.amount < 0).map(d => ({...d, amount: Math.abs(d.amount)})).sort((a,b) => b.amount - a.amount);
+    let i=0, j=0;
+    while(i<p.length && j<r.length) {
+        let amt = Math.min(p[i].amount, r[j].amount);
+        res.push(`<div style="padding:10px; border-bottom:1px solid #333;"><b style="color:var(--red);">${p[i].name}</b> ➔ 給 <b style="color:var(--green);">${r[j].name}</b> : <span style="font-size:18px;">$${Math.round(amt)}</span></div>`);
+        p[i].amount -= amt; r[j].amount -= amt;
+        if(p[i].amount === 0) i++; if(r[j].amount === 0) j++;
+    }
+    document.getElementById('settle-results').innerHTML = res.join('');
+}
+
+async function clearDatabase() {
+    if(!confirm("確定結帳完成？這將清空所有成員的遊戲金額與債務！")) return;
     for(let p of players) {
-        if(p.money !== 0 || p.debt !== 0) {
-            await patch(p.id, { money: 0, debt: 0 });
-        }
+        await patch(p.id, { money: 0, debt: 0 });
     }
-    alert("全員帳單已結清歸零！");
-    fetchData();
-}
-
-async function mergeFromGame(id) {
-    const p = players.find(x => x.id === id);
-    await patch(id, { debt: (p.debt || 0) + (p.money || 0), money: 0 });
-    fetchData();
+    alert("資料庫已清零。");
+    init();
 }
 
 async function patch(id, data) {
     return fetch(`${API_URL}/players?id=eq.${id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify(data) });
 }
 
-// 演算法部分保持原本邏輯...
-function calculateSettlements() {
-    let debtors = players.filter(p => Math.abs(p.debt || 0) > 0.5).map(p => ({ name: p.name.replace('OFF_',''), amount: Math.round(p.debt || 0) }));
-    let res = []; // (演算法省略，同 v2.1 版)
-    // ...
-    document.getElementById('settle-area').classList.remove('hidden');
-    // ...
-}
-
-fetchData();
+init();
 </script>
 </body>
 </html>
