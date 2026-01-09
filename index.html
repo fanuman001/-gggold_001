@@ -3,111 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger - 獨立記帳中心</title>
+    <title>ELITE Ledger v2.1 - 智慧財務中心</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 15px; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 15px; line-height: 1.5; }
         .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 15px; border: 1px solid var(--border); }
-        h2 { color: var(--gold); margin-top: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+        h2 { color: var(--gold); margin-top: 0; font-size: 18px; display: flex; align-items: center; justify-content: space-between; }
         
-        /* 記帳列表樣式 */
-        .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #333; }
-        .money-box { text-align: right; }
-        .game-val { font-size: 12px; color: var(--gray); }
-        .debt-val { font-size: 18px; font-weight: bold; color: var(--white); }
+        /* 表單樣式 */
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
+        .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
+        .share-btn { padding: 10px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--gray); }
+        .share-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(255, 165, 2, 0.1); font-weight: bold; }
+        
+        /* 列表樣式 */
+        .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #333; }
+        .player-info b { font-size: 17px; }
+        .game-tag { font-size: 11px; color: var(--gray); background: #000; padding: 2px 6px; border-radius: 4px; }
+        .debt-val { font-size: 18px; font-weight: bold; }
+        
+        /* 按鈕樣式 */
+        .btn-add { width: 100%; padding: 16px; background: var(--green); color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 16px; }
+        .btn-calc { width: 100%; padding: 16px; background: var(--blue); color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 16px; margin-top: 10px; }
+        .btn-merge { background: none; border: 1px solid var(--blue); color: var(--blue); padding: 4px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-top: 5px; }
 
-        /* 併入按鈕 */
-        .btn-merge { background: rgba(0, 210, 255, 0.1); color: var(--blue); border: 1px solid var(--blue); padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
-        .btn-merge:hover { background: var(--blue); color: #000; }
-
-        .input-group { margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-top: 5px; box-sizing: border-box; }
-        .btn-add { width: 100%; padding: 15px; background: var(--green); color: #000; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        /* 結算結果樣式 */
+        .settle-box { background: rgba(46, 213, 115, 0.05); border: 2px dashed var(--green); padding: 15px; border-radius: 15px; margin-top: 15px; }
+        .settle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .arrow { color: var(--gold); font-size: 12px; }
+        .hidden { display: none; }
+        .off-player { opacity: 0.6; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>💸 新增生活雜支</h2>
-    <div class="input-group">
-        <label>墊款人</label>
-        <select id="payer-id"></select>
-        <label style="display:block; margin-top:10px;">總金額</label>
-        <input type="number" id="pay-amt" placeholder="輸入墊付金額">
-        <label style="display:block; margin-top:10px;">參與分攤成員 (可多選)</label>
-        <div id="share-grid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; margin-top:8px;"></div>
-    </div>
-    <button class="btn-add" onclick="submitLedger()">確認記帳</button>
+    <h2>💸 新增分攤支出</h2>
+    <label style="font-size: 12px; color: var(--gray);">誰先墊錢？</label>
+    <select id="payer-id"></select>
+    
+    <label style="font-size: 12px; color: var(--gray);">總金額</label>
+    <input type="number" id="pay-amt" placeholder="例如：1200" inputmode="decimal">
+    
+    <label style="font-size: 12px; color: var(--gray); display: block; margin-bottom: 8px;">參與分攤成員 (僅限在線)</label>
+    <div id="share-grid" class="share-grid"></div>
+    
+    <button class="btn-add" onclick="submitLedger()">✅ 確認記帳</button>
 </div>
 
 <div class="card">
-    <h2>📊 財務總覽 (含遊戲餘額讀取)</h2>
+    <h2>📊 財務清算清單</h2>
     <div id="ledger-list"></div>
+    
+    <button class="btn-calc" onclick="calculateSettlements()">🔄 生成還錢建議 (電腦撮合)</button>
+    
+    <div id="settle-area" class="hidden">
+        <div class="settle-box">
+            <h3 style="margin:0 0 10px 0; font-size:16px; color:var(--green); text-align:center;">💡 最佳還錢路徑</h3>
+            <div id="settle-results"></div>
+            <button onclick="copySettlement()" style="width:100%; background:none; border:1px solid var(--gray); color:var(--gray); margin-top:10px; padding:8px; border-radius:8px; font-size:12px;">複製結果到剪貼簿</button>
+        </div>
+    </div>
 </div>
 
 <script>
-// --- 同樣連接你的 Supabase ---
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
 const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
 let players = [];
 
+// 初始化：抓取數據
 async function fetchData() {
-    const res = await fetch(`${API_URL}/players?select=*&order=name`, { headers: HEADERS });
-    players = await res.json();
-    render();
+    try {
+        const res = await fetch(`${API_URL}/players?select=*&order=name`, { headers: HEADERS });
+        players = await res.json();
+        render();
+    } catch (e) { console.error("抓取失敗", e); }
 }
 
 function render() {
-    const on = players.filter(p => !p.name.startsWith('OFF_'));
+    // 1. 篩選在線成員 (用於記帳選擇)
+    const online = players.filter(p => !p.name.startsWith('OFF_'));
     
-    // 渲染下拉選單
-    document.getElementById('payer-id').innerHTML = on.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    document.getElementById('payer-id').innerHTML = online.map(p => 
+        `<option value="${p.id}">${p.name}</option>`).join('');
     
-    // 渲染分攤勾選區
-    document.getElementById('share-grid').innerHTML = on.map(p => `
-        <div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')" 
-             style="padding:10px; background:#161b22; border:1px solid #444; border-radius:8px; text-align:center; font-size:12px; cursor:pointer;">
-            ${p.name}
-        </div>
-    `).join('');
+    document.getElementById('share-grid').innerHTML = online.map(p => 
+        `<div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name}</div>`).join('');
 
-    // 渲染主列表
-    document.getElementById('ledger-list').innerHTML = on.map(p => {
+    // 2. 顯示名單 (包含在線者，或是有錢沒清完的下線者)
+    const listDisplay = players.filter(p => {
+        const isOnline = !p.name.startsWith('OFF_');
+        const hasMoney = Math.abs(p.money || 0) > 0.1;
+        const hasDebt = Math.abs(p.debt || 0) > 0.1;
+        return isOnline || hasMoney || hasDebt;
+    });
+
+    document.getElementById('ledger-list').innerHTML = listDisplay.map(p => {
         const d = Math.round(p.debt || 0);
         const g = Math.round(p.money || 0);
+        const isOff = p.name.startsWith('OFF_');
+        const displayName = isOff ? '💤 ' + p.name.replace('OFF_', '') : p.name;
+
         return `
-            <div class="ledger-row">
-                <div>
-                    <b style="font-size:18px;">${p.name}</b><br>
-                    <span class="game-val">🎮 遊戲餘額: ${g >= 0 ? '+'+g : g}</span>
+            <div class="ledger-row ${isOff ? 'off-player' : ''}">
+                <div class="player-info">
+                    <b>${displayName}</b><br>
+                    <span class="game-tag">🎮 遊戲額: ${g}</span>
                 </div>
-                <div class="money-box">
+                <div style="text-align:right">
                     <div class="debt-val" style="color:${d >= 0 ? 'var(--green)' : 'var(--red)'}">${d >= 0 ? '+'+d : d}</div>
-                    <button class="btn-merge" onclick="mergeFromGame(${p.id})">📥 併入遊戲金額</button>
+                    <button class="btn-merge" onclick="mergeFromGame(${p.id})">📥 併入</button>
                 </div>
             </div>
         `;
     }).join('');
 }
 
-// 記帳邏輯
+// 記帳提交
 async function submitLedger() {
-    const pId = document.getElementById('payer-id').value;
-    const amt = parseFloat(document.getElementById('pay-amt').value);
+    const payerId = document.getElementById('payer-id').value;
+    const amount = parseFloat(document.getElementById('pay-amt').value);
     const selected = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
 
-    if(!amt || selected.length === 0) return alert("請輸入金額並選擇分攤人");
+    if (!amount || selected.length === 0) return alert("請輸入金額並選擇分攤人");
 
-    const perShare = amt / selected.length;
+    const perShare = amount / selected.length;
     
     for (let p of players) {
         let diff = 0;
-        if (p.id == pId) diff += amt;
+        if (p.id == payerId) diff += amount;
         if (selected.includes(String(p.id))) diff -= perShare;
-        
-        if (diff !== 0) {
+
+        if (Math.abs(diff) > 0.1) {
             await fetch(`${API_URL}/players?id=eq.${p.id}`, {
                 method: 'PATCH',
                 headers: HEADERS,
@@ -115,21 +144,22 @@ async function submitLedger() {
             });
         }
     }
+    
+    document.getElementById('pay-amt').value = '';
     alert("記帳成功！");
     fetchData();
 }
 
-// 併入功能：讀取遊戲金額，加到記帳債務中，並將遊戲幣清零（或反之）
+// 併入遊戲金額
 async function mergeFromGame(id) {
     const p = players.find(x => x.id === id);
-    if(p.money === 0) return alert("遊戲餘額為 0，無需併入");
-    
-    if(confirm(`確定將 ${p.name} 的遊戲金額 (${p.money}) 併入生活記帳嗎？\n(這會將遊戲餘額歸零)`)) {
+    const cleanName = p.name.replace('OFF_', '');
+    if (confirm(`確定將 ${cleanName} 的遊戲金額 (${p.money}) 併入生活債務？\n(遊戲額將歸零)`)) {
         await fetch(`${API_URL}/players?id=eq.${id}`, {
             method: 'PATCH',
             headers: HEADERS,
             body: JSON.stringify({ 
-                debt: (p.debt || 0) + p.money,
+                debt: (p.debt || 0) + (p.money || 0),
                 money: 0 
             })
         });
@@ -137,10 +167,62 @@ async function mergeFromGame(id) {
     }
 }
 
-// 加入 CSS 啟動樣式
-const style = document.createElement('style');
-style.innerHTML = `.share-btn.active { border-color: var(--gold) !important; color: var(--gold); background: rgba(255,165,2,0.1) !important; }`;
-document.head.appendChild(style);
+// 核心：結算演算法 (電腦提示誰給誰錢)
+function calculateSettlements() {
+    // 抓取所有有餘額的人，不論在線與否
+    let debtors = players
+        .filter(p => Math.abs(p.debt || 0) > 0.5)
+        .map(p => ({ 
+            name: p.name.replace('OFF_', ''), 
+            amount: Math.round(p.debt || 0) 
+        }));
+
+    let receivers = debtors.filter(d => d.amount > 0).sort((a, b) => b.amount - a.amount);
+    let payers = debtors.filter(d => d.amount < 0).map(d => ({ ...d, amount: Math.abs(d.amount) })).sort((a, b) => b.amount - a.amount);
+
+    let result = [];
+    let i = 0, j = 0;
+
+    while (i < payers.length && j < receivers.length) {
+        let payAmt = Math.min(payers[i].amount, receivers[j].amount);
+        result.push({ from: payers[i].name, to: receivers[j].name, amount: payAmt });
+        
+        payers[i].amount -= payAmt;
+        receivers[j].amount -= payAmt;
+
+        if (payers[i].amount === 0) i++;
+        if (receivers[j].amount === 0) j++;
+    }
+
+    const area = document.getElementById('settle-area');
+    const resDiv = document.getElementById('settle-results');
+    area.classList.remove('hidden');
+
+    if (result.length === 0) {
+        resDiv.innerHTML = "<div style='text-align:center; color:var(--gray);'>帳務已兩清！</div>";
+    } else {
+        resDiv.innerHTML = result.map(r => `
+            <div class="settle-row">
+                <span style="color:var(--red); font-weight:bold;">${r.from}</span>
+                <span class="arrow">➔ 給 ➔</span>
+                <span style="color:var(--green); font-weight:bold;">${r.to}</span>
+                <span style="font-weight:900; font-size:18px;">$${Math.round(r.amount)}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// 輔助：複製結果
+function copySettlement() {
+    const rows = document.querySelectorAll('.settle-row');
+    let text = "📊 ELITE 結算建議：\n";
+    rows.forEach(row => {
+        const spans = row.querySelectorAll('span');
+        text += `${spans[0].innerText} ➔ 給 ${spans[2].innerText} ： $${spans[3].innerText}\n`;
+    });
+    navigator.clipboard.writeText(text);
+    alert("已複製結算內容！");
+}
 
 fetchData();
 </script>
