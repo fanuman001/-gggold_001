@@ -9,14 +9,10 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; padding: 15px; }
         .card { background: var(--card); padding: 18px; border-radius: 18px; margin-bottom: 12px; border: 1px solid var(--border); }
         h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 16px; border-left: 4px solid var(--gold); padding-left: 10px; }
-        
-        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; }
-        
-        /* 成員勾選區 */
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
         .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
         .share-btn { padding: 12px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--gray); transition: 0.2s; }
         .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); font-weight: bold; }
-        
         .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 5px; }
         .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; }
         .settle-item { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--green); }
@@ -25,23 +21,22 @@
 <body>
 
 <div class="card">
-    <h2>1. 讀取遊戲結單 (從歷史紀錄)</h2>
+    <h2>1. 讀取遊戲結單 (歷史紀錄)</h2>
     <select id="history-select" onchange="previewNote()"></select>
-    <div id="note-preview" style="font-size:11px; color:var(--gray); margin-bottom:10px; background:#000; padding:8px; border-radius:5px; min-height:20px;">尚未選擇訂單</div>
+    <div id="note-preview" style="font-size:11px; color:var(--gray); margin-bottom:10px; background:#000; padding:8px; border-radius:5px; min-height:40px; white-space: pre-wrap;">尚未選擇訂單</div>
     <button class="btn-main" style="background:var(--gold); color:#000;" onclick="importHistory()">匯入結單金額</button>
 </div>
 
 <div class="card">
-    <h2>2. 生活雜支分攤 (可選所有人)</h2>
+    <h2>2. 生活雜支分攤 (所有人)</h2>
     <select id="payer-id"></select>
-    <input type="number" id="pay-amt" placeholder="輸入總金額 (例如飲料錢)" inputmode="decimal">
-    <div style="font-size:12px; color:var(--gray); margin-bottom:8px;">誰要分攤？(點擊勾選)</div>
+    <input type="number" id="pay-amt" placeholder="輸入總金額" inputmode="decimal">
     <div id="share-grid" class="share-grid"></div>
-    <button class="btn-main" style="background:var(--green); color:#000;" onclick="submitExpense()">確認記帳</button>
+    <button class="btn-main" style="background:var(--green); color:#000;" onclick="submitExpense()">確認分攤記帳</button>
 </div>
 
 <div class="card">
-    <h2>3. 最終自動分配 (誰該給誰錢)</h2>
+    <h2>3. 最終自動分配 (計算還錢)</h2>
     <div id="ledger-list" style="margin-bottom:15px;"></div>
     <button class="btn-main" style="background:var(--blue); color:#000;" onclick="analyzeMoney()">🔄 執行自動分析</button>
     <div id="analyze-results" style="margin-top:15px;"></div>
@@ -50,6 +45,7 @@
 <button class="btn-main" style="background:none; border:1px solid var(--red); color:var(--red); margin-top:20px; margin-bottom:50px;" onclick="clearAllData()">🧹 結帳完成：一鍵歸零資料庫</button>
 
 <script>
+// --- 請務必確認這兩行正確 ---
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
 const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
@@ -63,55 +59,62 @@ async function init() {
             fetch(`${API_URL}/players?select=*`, { headers: HEADERS }),
             fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=15`, { headers: HEADERS })
         ]);
+        
+        if (!pRes.ok || !hRes.ok) throw new Error("API 回傳錯誤");
+
         players = await pRes.json();
         historyList = await hRes.json();
         
-        if (players.length === 0) alert("資料庫內無成員，請檢查 Supabase");
         renderUI();
-    } catch (e) { alert("連線失敗：" + e); }
+    } catch (e) { 
+        console.error(e);
+        alert("❌ 初始化失敗：請檢查 API 設定或網路。"); 
+    }
 }
 
 function renderUI() {
-    // 1. 歷史訂單
+    // 1. 歷史訂單：增加安全檢查 (h.note || "")
     const hSelect = document.getElementById('history-select');
-    hSelect.innerHTML = '<option value="">-- 選擇一筆確定結單 --</option>' + 
-        historyList.map((h, i) => `<option value="${i}">${new Date(h.created_at).toLocaleString().split(' ')[1]} - ${h.note.substring(0,15)}...</option>`).join('');
+    hSelect.innerHTML = '<option value="">-- 選擇歷史結單 --</option>' + 
+        historyList.map((h, i) => {
+            const notePreview = (h.note || "無內容").substring(0, 15);
+            return `<option value="${i}">${new Date(h.created_at).toLocaleTimeString()} - ${notePreview}...</option>`;
+        }).join('');
 
-    // 2. 墊錢人 (所有人)
-    const pSelect = document.getElementById('payer-id');
-    pSelect.innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
+    // 2. 墊錢人
+    document.getElementById('payer-id').innerHTML = players.map(p => 
+        `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
 
-    // 3. 分攤成員勾選區 (這是你沒看到成員的地方，現在強制循環所有 players)
-    const sGrid = document.getElementById('share-grid');
-    sGrid.innerHTML = players.map(p => {
+    // 3. 成員勾選
+    document.getElementById('share-grid').innerHTML = players.map(p => {
         const cleanName = p.name.replace('OFF_','');
         return `<div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')">${cleanName}</div>`;
     }).join('');
 
-    // 4. 顯示目前每個人的總債務
-    const lList = document.getElementById('ledger-list');
-    lList.innerHTML = players.filter(p => Math.abs(p.debt || 0) > 0.1).map(p => `
-        <div class="ledger-row">
-            <span>${p.name.replace('OFF_','')}</span>
-            <b style="color:${p.debt >= 0 ? 'var(--green)' : 'var(--red)'}">${Math.round(p.debt)}</b>
-        </div>
-    `).join('');
+    // 4. 總債務列表
+    document.getElementById('ledger-list').innerHTML = players
+        .filter(p => Math.abs(p.debt || 0) > 0.1)
+        .map(p => `
+            <div class="ledger-row">
+                <span>${p.name.replace('OFF_','')}</span>
+                <b style="color:${p.debt >= 0 ? 'var(--green)' : 'var(--red)'}">${Math.round(p.debt)}</b>
+            </div>
+        `).join('');
 }
 
 function previewNote() {
     const idx = document.getElementById('history-select').value;
-    document.getElementById('note-preview').innerText = idx !== "" ? historyList[idx].note : "尚未選擇訂單";
+    const preview = document.getElementById('note-preview');
+    preview.innerText = (idx !== "" && historyList[idx]) ? historyList[idx].note : "尚未選擇訂單";
 }
 
-// 匯入歷史訂單邏輯
 async function importHistory() {
     const idx = document.getElementById('history-select').value;
-    if(idx === "") return alert("請先選擇訂單");
+    if(idx === "" || !historyList[idx].note) return alert("請選擇有效訂單");
     const note = historyList[idx].note;
     
-    if(!confirm("確定匯入這筆結單金額嗎？")) return;
+    if(!confirm("確定匯入此筆結單？")) return;
 
-    // 解析格式 "名字:金額 | 名字:金額"
     const parts = note.split('|');
     for(let pStr of parts) {
         const pair = pStr.split(':');
@@ -119,17 +122,13 @@ async function importHistory() {
         const n = pair[0].trim();
         const a = parseFloat(pair[1].trim());
 
-        // 模糊匹配：只要名字包含在資料庫名稱內即可 (例如 "秉軒" 匹配 "hsuan秉軒")
         const target = players.find(p => p.name.includes(n));
-        if(target) {
-            await patch(target.id, { debt: (target.debt || 0) + a });
-        }
+        if(target) await patch(target.id, { debt: (target.debt || 0) + a });
     }
     alert("匯入完成！");
     init();
 }
 
-// 雜支分攤邏輯
 async function submitExpense() {
     const pId = document.getElementById('payer-id').value;
     const amt = parseFloat(document.getElementById('pay-amt').value);
@@ -148,7 +147,6 @@ async function submitExpense() {
     init();
 }
 
-// 自動分析：誰該給誰錢
 function analyzeMoney() {
     let data = players.filter(p => Math.abs(p.debt || 0) > 0.5)
                       .map(p => ({ name: p.name.replace('OFF_',''), amount: Math.round(p.debt) }));
@@ -165,16 +163,12 @@ function analyzeMoney() {
         if(payers[i].amount === 0) i++;
         if(receivers[j].amount === 0) j++;
     }
-    
-    document.getElementById('analyze-results').innerHTML = results.length > 0 ? results.join('') : "帳目已平衡，不需要轉帳。";
+    document.getElementById('analyze-results').innerHTML = results.length > 0 ? results.join('') : "帳目已平衡。";
 }
 
-// 一鍵歸零
 async function clearAllData() {
-    if(!confirm("⚠️ 注意：這會將所有人的【遊戲額】與【雜支債務】全部清空為 0。確定嗎？")) return;
-    for(let p of players) {
-        await patch(p.id, { money: 0, debt: 0 });
-    }
+    if(!confirm("⚠️ 結帳完成？這會清空資料庫所有人的餘額與債務。")) return;
+    for(let p of players) await patch(p.id, { money: 0, debt: 0 });
     alert("資料庫已清零！");
     init();
 }
