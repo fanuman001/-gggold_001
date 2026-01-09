@@ -3,163 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v5.0</title>
+    <title>ELITE Ledger v6.0</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
-        body { font-family: sans-serif; background: var(--bg); color: #fff; padding: 15px; margin: 0; }
-        .card { background: var(--card); padding: 18px; border-radius: 20px; margin-bottom: 12px; border: 1px solid var(--border); }
-        h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 16px; border-left: 4px solid var(--gold); padding-left: 10px; }
-        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
-        .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
-        .share-btn { padding: 12px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--gray); }
-        .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); font-weight: bold; }
-        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
-        .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; }
-        #note-preview { font-size: 12px; color: #00ff00; background: #000; padding: 10px; border-radius: 8px; min-height: 40px; border: 1px solid #333; margin-bottom: 10px; }
-        .settle-item { background: rgba(46, 213, 115, 0.1); padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--green); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 10px; margin: 0; padding-bottom: 50px; }
+        .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 10px; border: 1px solid var(--border); }
+        h2 { color: var(--gold); margin: 0 0 10px 0; font-size: 15px; display: flex; align-items: center; }
+        h2::before { content: "◈"; margin-right: 8px; color: var(--blue); }
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-size: 14px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-gold { background: var(--gold); color: #000; }
+        .btn-outline { background: none; border: 1px solid var(--gray); color: var(--gray); }
+        #preview-list { background: #000; border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 13px; border: 1px dashed #444; }
+        .item-pos { color: var(--green); } .item-neg { color: var(--red); }
+        .ledger-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; font-size: 14px; }
+        .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+        .share-btn { padding: 8px 2px; background: #161b22; border: 1px solid #444; border-radius: 6px; text-align: center; font-size: 12px; color: var(--gray); }
+        .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>1. 讀取歷史結單 (description)</h2>
-    <select id="history-select" onchange="previewData()"></select>
-    <div id="note-preview">請選擇一筆「💰 結單」紀錄</div>
-    <button class="btn-main" style="background:var(--gold); color:#000;" onclick="importData()">📥 匯入結單金額</button>
+    <h2>結單紀錄選取 (僅顯示結單)</h2>
+    <select id="h-select" onchange="parseHistory()"></select>
+    <div id="preview-list">請選擇一筆紀錄...</div>
+    <div class="btn-group">
+        <button class="btn-gold" onclick="processLedger(1)">📥 密碼匯入</button>
+        <button class="btn-outline" onclick="processLedger(-1)">🔙 退回此單</button>
+    </div>
 </div>
 
 <div class="card">
-    <h2>2. 生活雜支分攤 (所有人)</h2>
+    <h2>生活雜支分攤 (多人同步)</h2>
     <select id="payer-id"></select>
-    <input type="number" id="pay-amt" placeholder="輸入總金額 (如：飲料1000)" inputmode="decimal">
+    <input type="number" id="exp-amt" placeholder="總金額" inputmode="decimal">
     <div id="share-grid" class="share-grid"></div>
-    <button class="btn-main" style="background:var(--green); color:#000;" onclick="submitExpense()">✅ 確認記帳</button>
+    <button style="width:100%; background:var(--green); color:#000;" onclick="submitExpense()">✅ 登記支出</button>
 </div>
 
 <div class="card">
-    <h2>3. 最終清算分析</h2>
-    <div id="ledger-list" style="margin-bottom:15px;"></div>
-    <button class="btn-main" style="background:var(--blue); color:#000;" onclick="analyzeMoney()">🔄 執行自動還錢提示</button>
-    <div id="analyze-results" style="margin-top:15px;"></div>
+    <h2>當前債務匯總</h2>
+    <div id="ledger-list"></div>
+    <button style="width:100%; background:var(--blue); color:#000; margin-top:10px;" onclick="calculateSettle()">🔄 產生還錢建議</button>
+    <div id="settle-results" style="margin-top:10px;"></div>
 </div>
-
-<button class="btn-main" style="background:none; border:1px solid var(--red); color:var(--red); margin: 20px 0 50px 0;" onclick="clearAllData()">🧹 結帳完成：一鍵歸零資料庫</button>
 
 <script>
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
+const ADMIN_PW = "8888"; // 匯入密碼
 const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-let players = [], historyList = [];
+let players = [], hList = [], parsedItems = [];
 
-async function init() {
-    try {
-        const [pRes, hRes] = await Promise.all([
-            fetch(`${API_URL}/players?select=*`, { headers: HEADERS }),
-            fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=20`, { headers: HEADERS })
-        ]);
-        players = await pRes.json();
-        historyList = await hRes.json();
-        render();
-    } catch (e) { alert("讀取失敗"); }
+async function load() {
+    const [pRes, hRes] = await Promise.all([
+        fetch(`${API_URL}/players?select=*`, { headers: HEADERS }),
+        fetch(`${API_URL}/history?select=*&description=fts.💰&order=created_at.desc`, { headers: HEADERS })
+    ]);
+    players = await pRes.json();
+    hList = await hRes.json();
+    render();
 }
 
 function render() {
-    // 1. 歷史下拉：標註哪些是結單
-    const hSelect = document.getElementById('history-select');
-    hSelect.innerHTML = '<option value="">-- 選擇紀錄 --</option>' + 
-        historyList.map((h, i) => {
-            const isSettlement = h.description && h.description.includes('💰');
-            return `<option value="${i}">${isSettlement ? '✅ ' : ''}${new Date(h.created_at).toLocaleTimeString()} - ${h.description.substring(0,15)}</option>`;
-        }).join('');
+    const sel = document.getElementById('h-select');
+    sel.innerHTML = '<option value="">-- 選擇歷史結單 --</option>' + 
+        hList.map((h, i) => `<option value="${i}">${new Date(h.created_at).toLocaleString('zh-TW')} 結單</option>`).join('');
 
-    // 2. 墊錢人與分攤人
     document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
-    document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
-
-    // 3. 債務清單
-    document.getElementById('ledger-list').innerHTML = players.filter(p => Math.abs(p.debt||0)>0.1).map(p => `
+    document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn active" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
+    
+    document.getElementById('ledger-list').innerHTML = players.filter(p => Math.abs(p.debt)>0.1).map(p => `
         <div class="ledger-row"><span>${p.name.replace('OFF_','')}</span><b>${Math.round(p.debt)}</b></div>`).join('');
 }
 
-function previewData() {
-    const idx = document.getElementById('history-select').value;
-    const preview = document.getElementById('note-preview');
-    if(idx === "") { preview.innerText = "請選擇紀錄"; return; }
-    preview.innerText = historyList[idx].description || "無內容";
+function parseHistory() {
+    const idx = document.getElementById('h-select').value;
+    const box = document.getElementById('preview-list');
+    if(!idx) { box.innerText = "請選擇一筆紀錄..."; return; }
+    
+    let raw = hList[idx].description.replace(/💰\s*結單[：:]/g, '');
+    parsedItems = raw.split('|').map(s => {
+        let pair = s.split(/[:：]/);
+        return pair.length === 2 ? { name: pair[0].trim(), amt: parseFloat(pair[1]) } : null;
+    }).filter(x => x && !isNaN(x.amt));
+
+    box.innerHTML = parsedItems.map(item => `
+        <div style="display:flex; justify-content:space-between;">
+            <span>${item.name}</span>
+            <span class="${item.amt >= 0 ? 'item-pos' : 'item-neg'}">${item.amt >= 0 ? '+' : ''}${item.amt}</span>
+        </div>
+    `).join('');
 }
 
-async function importData() {
-    const idx = document.getElementById('history-select').value;
-    if(idx === "") return alert("請先選取結單");
-    let desc = historyList[idx].description || "";
-    
-    // 去除 "💰 結單：" 前綴
-    desc = desc.replace('💰 結單：', '').replace('💰 結單:', '');
-    
-    if(!confirm("確定匯入金額？")) return;
+async function processLedger(side) {
+    if(parsedItems.length === 0) return alert("無內容可處理");
+    const pw = prompt(`請輸入密碼以進行${side === 1 ? '匯入' : '退回'}：`);
+    if(pw !== ADMIN_PW) return alert("密碼錯誤");
 
-    const parts = desc.split('|');
-    for(let pStr of parts) {
-        const pair = pStr.split(':');
-        if(pair.length < 2) continue;
-        const n = pair[0].trim();
-        const a = parseFloat(pair[1].trim());
-
-        // 匹配球員：名字包含在資料庫名稱內
-        const target = players.find(p => p.name.includes(n));
-        if(target && !isNaN(a)) {
-            await fetch(`${API_URL}/players?id=eq.${target.id}`, {
-                method: 'PATCH',
-                headers: HEADERS,
-                body: JSON.stringify({ debt: (target.debt || 0) + a })
+    for(let item of parsedItems) {
+        const p = players.find(x => x.name.includes(item.name));
+        if(p) {
+            // 關鍵：每次更新前重新抓取該玩家最新 debt，避免多人操作覆蓋
+            const latest = await fetch(`${API_URL}/players?id=eq.${p.id}&select=debt`, { headers: HEADERS }).then(r => r.json());
+            const currentDebt = latest[0]?.debt || 0;
+            await fetch(`${API_URL}/players?id=eq.${p.id}`, {
+                method: 'PATCH', headers: HEADERS,
+                body: JSON.stringify({ debt: currentDebt + (item.amt * side) })
             });
         }
     }
-    alert("匯入成功！");
-    init();
+    alert("操作成功！"); load();
 }
 
 async function submitExpense() {
     const pId = document.getElementById('payer-id').value;
-    const amt = parseFloat(document.getElementById('pay-amt').value);
+    const amt = parseFloat(document.getElementById('exp-amt').value);
     const selected = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
-    if(!amt || selected.length === 0) return alert("資訊不足");
+    if(!amt || selected.length === 0) return alert("請輸入金額並選擇分攤人");
+    
     const per = amt / selected.length;
     for(let p of players) {
         let diff = 0;
         if(p.id == pId) diff += amt;
         if(selected.includes(String(p.id))) diff -= per;
-        if(Math.abs(diff) > 0.1) await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: (p.debt||0) + diff }) });
+        if(Math.abs(diff) > 0.1) {
+            const latest = await fetch(`${API_URL}/players?id=eq.${p.id}&select=debt`, { headers: HEADERS }).then(r => r.json());
+            const currentDebt = latest[0]?.debt || 0;
+            await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: currentDebt + diff }) });
+        }
     }
-    document.getElementById('pay-amt').value = '';
-    init();
+    document.getElementById('exp-amt').value = '';
+    alert("支出已登記"); load();
 }
 
-function analyzeMoney() {
-    let d = players.filter(p => Math.abs(p.debt||0)>0.5).map(p => ({name:p.name.replace('OFF_',''), amount:Math.round(p.debt)}));
-    let r = d.filter(x => x.amount > 0).sort((a,b)=>b.amount-a.amount);
-    let p = d.filter(x => x.amount < 0).map(x => ({...x, amount:Math.abs(x.amount)})).sort((a,b)=>b.amount-a.amount);
+function calculateSettle() {
+    let d = players.filter(p => Math.abs(p.debt)>0.5).map(p => ({n:p.name.replace('OFF_',''), a:Math.round(p.debt)}));
+    let r = d.filter(x => x.a > 0).sort((a,b)=>b.a-a.a), p = d.filter(x => x.a < 0).map(x => ({n:x.n, a:Math.abs(x.a)})).sort((a,b)=>b.a-a.a);
     let res = [], i=0, j=0;
     while(i<p.length && j<r.length) {
-        let amt = Math.min(p[i].amount, r[j].amount);
-        res.push(`<div class="settle-item"><b>${p[i].name}</b> ➔ 給 <b>${r[j].name}</b> : <span style="font-size:20px; font-weight:900; color:var(--gold);">$${amt}</span></div>`);
-        p[i].amount-=amt; r[j].amount-=amt;
-        if(p[i].amount===0) i++; if(r[j].amount===0) j++;
+        let m = Math.min(p[i].a, r[j].a);
+        res.push(`<div style="background:#1c222b; padding:10px; border-radius:8px; margin-bottom:5px; border-left:3px solid var(--gold);"><b>${p[i].n}</b> ➔ <b>${r[j].n}</b> : $${m}</div>`);
+        p[i].a-=m; r[j].a-=m; if(p[i].a===0) i++; if(r[j].a===0) j++;
     }
-    document.getElementById('analyze-results').innerHTML = res.length > 0 ? res.join('') : "帳目已清。";
+    document.getElementById('settle-results').innerHTML = res.join('') || "帳目已平";
 }
 
-async function clearAllData() {
-    if(!confirm("確定全體歸零？")) return;
-    for(let p of players) {
-        await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: 0, money: 0 }) });
-    }
-    alert("全體歸零完成！");
-    init();
-}
-
-init();
+load();
+setInterval(load, 30000); // 每 30 秒自動刷新一次數據
 </script>
 </body>
 </html>
