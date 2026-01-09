@@ -3,99 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger - 深度診斷版</title>
+    <title>ELITE Ledger v5.0</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
-        body { font-family: sans-serif; background: var(--bg); color: #fff; padding: 15px; }
-        .card { background: var(--card); padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid var(--border); }
-        select { width: 100%; padding: 12px; background: #000; color: #fff; border-radius: 10px; margin-bottom: 10px; }
-        #debug-box { font-family: monospace; font-size: 11px; color: #00ff00; background: #000; padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; border: 1px solid #444; min-height: 100px; }
-        .btn-main { width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; }
+        body { font-family: sans-serif; background: var(--bg); color: #fff; padding: 15px; margin: 0; }
+        .card { background: var(--card); padding: 18px; border-radius: 20px; margin-bottom: 12px; border: 1px solid var(--border); }
+        h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 16px; border-left: 4px solid var(--gold); padding-left: 10px; }
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
+        .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        .share-btn { padding: 12px 5px; background: #161b22; border: 1px solid #444; border-radius: 8px; text-align: center; font-size: 12px; cursor: pointer; color: var(--gray); }
+        .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); font-weight: bold; }
+        .btn-main { width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .ledger-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #333; }
+        #note-preview { font-size: 12px; color: #00ff00; background: #000; padding: 10px; border-radius: 8px; min-height: 40px; border: 1px solid #333; margin-bottom: 10px; }
+        .settle-item { background: rgba(46, 213, 115, 0.1); padding: 12px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid var(--green); }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2 style="color:var(--gold); font-size:16px;">🔍 第一步：找出結單內容在哪</h2>
-    <label style="font-size:12px; color:var(--gray);">選擇時間（看下方綠字出現什麼）：</label>
-    <select id="history-select" onchange="inspectData()"></select>
-    <div id="debug-box">這裡會顯示資料庫的原始內容...</div>
+    <h2>1. 讀取歷史結單 (description)</h2>
+    <select id="history-select" onchange="previewData()"></select>
+    <div id="note-preview">請選擇一筆「💰 結單」紀錄</div>
+    <button class="btn-main" style="background:var(--gold); color:#000;" onclick="importData()">📥 匯入結單金額</button>
 </div>
 
-<div class="card" id="import-section" style="display:none;">
-    <h2 style="color:var(--green); font-size:16px;">📥 第二步：內容確認無誤</h2>
-    <p style="font-size:12px;">如果上方綠字有看到「秉軒:497...」，請點擊下方：</p>
-    <button class="btn-main" style="background:var(--gold); color:#000;" onclick="doImport()">匯入此內容到債務</button>
+<div class="card">
+    <h2>2. 生活雜支分攤 (所有人)</h2>
+    <select id="payer-id"></select>
+    <input type="number" id="pay-amt" placeholder="輸入總金額 (如：飲料1000)" inputmode="decimal">
+    <div id="share-grid" class="share-grid"></div>
+    <button class="btn-main" style="background:var(--green); color:#000;" onclick="submitExpense()">✅ 確認記帳</button>
 </div>
+
+<div class="card">
+    <h2>3. 最終清算分析</h2>
+    <div id="ledger-list" style="margin-bottom:15px;"></div>
+    <button class="btn-main" style="background:var(--blue); color:#000;" onclick="analyzeMoney()">🔄 執行自動還錢提示</button>
+    <div id="analyze-results" style="margin-top:15px;"></div>
+</div>
+
+<button class="btn-main" style="background:none; border:1px solid var(--red); color:var(--red); margin: 20px 0 50px 0;" onclick="clearAllData()">🧹 結帳完成：一鍵歸零資料庫</button>
 
 <script>
 const API_URL = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
-const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json' };
+const HEADERS = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
 let players = [], historyList = [];
-let targetKey = ""; // 自動偵測到的欄位 Key
 
 async function init() {
     try {
         const [pRes, hRes] = await Promise.all([
             fetch(`${API_URL}/players?select=*`, { headers: HEADERS }),
-            fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=10`, { headers: HEADERS })
+            fetch(`${API_URL}/history?select=*&order=created_at.desc&limit=20`, { headers: HEADERS })
         ]);
         players = await pRes.json();
         historyList = await hRes.json();
-        
-        const hSelect = document.getElementById('history-select');
-        hSelect.innerHTML = '<option value="">-- 選擇紀錄 --</option>' + 
-            historyList.map((h, i) => `<option value="${i}">${new Date(h.created_at).toLocaleString()}</option>`).join('');
-    } catch (e) { alert("連線失敗"); }
+        render();
+    } catch (e) { alert("讀取失敗"); }
 }
 
-function inspectData() {
-    const idx = document.getElementById('history-select').value;
-    const debugBox = document.getElementById('debug-box');
-    const importSection = document.getElementById('import-section');
-    
-    if(idx === "") {
-        debugBox.innerText = "請先選擇時間";
-        importSection.style.display = "none";
-        return;
-    }
+function render() {
+    // 1. 歷史下拉：標註哪些是結單
+    const hSelect = document.getElementById('history-select');
+    hSelect.innerHTML = '<option value="">-- 選擇紀錄 --</option>' + 
+        historyList.map((h, i) => {
+            const isSettlement = h.description && h.description.includes('💰');
+            return `<option value="${i}">${isSettlement ? '✅ ' : ''}${new Date(h.created_at).toLocaleTimeString()} - ${h.description.substring(0,15)}</option>`;
+        }).join('');
 
-    const item = historyList[idx];
-    // 將整筆資料轉成 JSON 字串顯示出來
-    debugBox.innerText = JSON.stringify(item, null, 2);
+    // 2. 墊錢人與分攤人
+    document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
+    document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
 
-    // 自動掃描哪一個欄位包含 "|" 或 ":" (結單格式)
-    targetKey = "";
-    for (let key in item) {
-        if (typeof item[key] === 'string' && item[key].includes(':') && item[key].includes('|')) {
-            targetKey = key;
-            break;
-        }
-    }
-
-    if(targetKey) {
-        importSection.style.display = "block";
-        debugBox.innerHTML += `\n\n✅ 偵測到結單數據在欄位：[${targetKey}]`;
-    } else {
-        importSection.style.display = "none";
-        debugBox.innerHTML += `\n\n❌ 找不到包含「:」和「|」的結單數據。請檢查遊戲程式是否正確送單。`;
-    }
+    // 3. 債務清單
+    document.getElementById('ledger-list').innerHTML = players.filter(p => Math.abs(p.debt||0)>0.1).map(p => `
+        <div class="ledger-row"><span>${p.name.replace('OFF_','')}</span><b>${Math.round(p.debt)}</b></div>`).join('');
 }
 
-async function doImport() {
+function previewData() {
     const idx = document.getElementById('history-select').value;
-    const note = historyList[idx][targetKey];
+    const preview = document.getElementById('note-preview');
+    if(idx === "") { preview.innerText = "請選擇紀錄"; return; }
+    preview.innerText = historyList[idx].description || "無內容";
+}
+
+async function importData() {
+    const idx = document.getElementById('history-select').value;
+    if(idx === "") return alert("請先選取結單");
+    let desc = historyList[idx].description || "";
     
-    const parts = note.split('|');
+    // 去除 "💰 結單：" 前綴
+    desc = desc.replace('💰 結單：', '').replace('💰 結單:', '');
+    
+    if(!confirm("確定匯入金額？")) return;
+
+    const parts = desc.split('|');
     for(let pStr of parts) {
         const pair = pStr.split(':');
         if(pair.length < 2) continue;
         const n = pair[0].trim();
         const a = parseFloat(pair[1].trim());
+
+        // 匹配球員：名字包含在資料庫名稱內
         const target = players.find(p => p.name.includes(n));
-        if(target) {
+        if(target && !isNaN(a)) {
             await fetch(`${API_URL}/players?id=eq.${target.id}`, {
                 method: 'PATCH',
                 headers: HEADERS,
@@ -104,7 +117,46 @@ async function doImport() {
         }
     }
     alert("匯入成功！");
-    location.reload();
+    init();
+}
+
+async function submitExpense() {
+    const pId = document.getElementById('payer-id').value;
+    const amt = parseFloat(document.getElementById('pay-amt').value);
+    const selected = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
+    if(!amt || selected.length === 0) return alert("資訊不足");
+    const per = amt / selected.length;
+    for(let p of players) {
+        let diff = 0;
+        if(p.id == pId) diff += amt;
+        if(selected.includes(String(p.id))) diff -= per;
+        if(Math.abs(diff) > 0.1) await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: (p.debt||0) + diff }) });
+    }
+    document.getElementById('pay-amt').value = '';
+    init();
+}
+
+function analyzeMoney() {
+    let d = players.filter(p => Math.abs(p.debt||0)>0.5).map(p => ({name:p.name.replace('OFF_',''), amount:Math.round(p.debt)}));
+    let r = d.filter(x => x.amount > 0).sort((a,b)=>b.amount-a.amount);
+    let p = d.filter(x => x.amount < 0).map(x => ({...x, amount:Math.abs(x.amount)})).sort((a,b)=>b.amount-a.amount);
+    let res = [], i=0, j=0;
+    while(i<p.length && j<r.length) {
+        let amt = Math.min(p[i].amount, r[j].amount);
+        res.push(`<div class="settle-item"><b>${p[i].name}</b> ➔ 給 <b>${r[j].name}</b> : <span style="font-size:20px; font-weight:900; color:var(--gold);">$${amt}</span></div>`);
+        p[i].amount-=amt; r[j].amount-=amt;
+        if(p[i].amount===0) i++; if(r[j].amount===0) j++;
+    }
+    document.getElementById('analyze-results').innerHTML = res.length > 0 ? res.join('') : "帳目已清。";
+}
+
+async function clearAllData() {
+    if(!confirm("確定全體歸零？")) return;
+    for(let p of players) {
+        await fetch(`${API_URL}/players?id=eq.${p.id}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ debt: 0, money: 0 }) });
+    }
+    alert("全體歸零完成！");
+    init();
 }
 
 init();
