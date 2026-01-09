@@ -3,112 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ELITE Ledger v9.0</title>
+    <title>ELITE Ledger v9.1</title>
     <style>
         :root { --blue: #00d2ff; --red: #ff4757; --green: #2ed573; --gold: #ffa502; --bg: #0d1117; --card: #1c222b; --border: #30363d; --gray: #8b949e; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #fff; padding: 12px; margin: 0; padding-bottom: 50px; }
-        .card { background: var(--card); padding: 16px; border-radius: 16px; margin-bottom: 14px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; padding: 12px; margin: 0; padding-bottom: 50px; }
+        .card { background: var(--card); padding: 16px; border-radius: 16px; margin-bottom: 14px; border: 1px solid var(--border); }
         h2 { color: var(--gold); margin: 0 0 12px 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
         h2::before { content: ""; width: 3px; height: 15px; background: var(--blue); border-radius: 10px; }
-        select, input { width: 100%; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; transition: 0.3s; }
-        select:focus, input:focus { border-color: var(--blue); outline: none; }
+        select, input { width: 100%; padding: 12px; background: #0d1117; border: 1px solid #30363d; color: #fff; border-radius: 10px; margin-bottom: 10px; box-sizing: border-box; font-size: 16px; }
         .share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-        .share-btn { padding: 10px 2px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; text-align: center; font-size: 12px; color: var(--gray); cursor: pointer; transition: 0.2s; }
+        .share-btn { padding: 10px 2px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; text-align: center; font-size: 12px; color: var(--gray); cursor: pointer; }
         .share-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(0, 210, 255, 0.1); font-weight: bold; }
         .ledger-row { display: flex; justify-content: space-between; padding: 14px; background: #161b22; border-radius: 12px; margin-bottom: 8px; border: 1px solid #30363d; }
-        .btn { width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; font-size: 15px; active-transform: scale(0.98); transition: 0.2s; }
+        .btn { width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; border: none; cursor: pointer; font-size: 15px; }
         .btn-gold { background: var(--gold); color: #000; }
         .btn-green { background: var(--green); color: #000; }
-        .btn-outline { background: transparent; border: 1px solid #30363d; color: var(--gray); margin-top: 10px; font-size: 12px; padding: 8px; }
-        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); display:none; justify-content:center; align-items:center; z-index:999; flex-direction:column; }
-        .spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: var(--blue); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin-bottom: 10px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-red { background: none; border: 1px solid var(--red); color: var(--red); margin-top: 20px; font-size: 12px; padding: 8px; }
+        #loading { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:none; justify-content:center; align-items:center; z-index:999; flex-direction:column; }
     </style>
 </head>
 <body>
 
-<div id="loading-overlay"><div class="spinner"></div><div id="loading-msg">處理中...</div></div>
-
-<div id="status-tag" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:12px;">同步中...</div>
+<div id="loading"><div id="msg">處理中...</div></div>
+<div id="status" style="text-align:center; font-size:10px; color:var(--gray); margin-bottom:12px;">正在連線...</div>
 
 <div class="card">
-    <h2>遊戲結單自動入帳</h2>
-    <select id="h-select" onchange="parseH()"><option value="">讀取待處理單據...</option></select>
-    <div id="preview-area" style="display:none; margin-top:10px; animation: fadeIn 0.3s;">
+    <h2>1. 遊戲單據自動入帳</h2>
+    <select id="h-select" onchange="parseH()"><option value="">讀取單據中...</option></select>
+    <div id="preview-area" style="display:none; margin-top:10px;">
         <div id="preview-text" style="font-size:12px; background:#000; padding:12px; border-radius:10px; margin-bottom:12px; white-space:pre-wrap; border: 1px dashed #444;"></div>
-        <button class="btn btn-gold" onclick="importGame()">📥 確認結果並寫入資料庫</button>
-        <button class="btn btn-outline" onclick="clearHistory()">🗑️ 清除此單紀錄 (標記已處理)</button>
+        <button class="btn btn-gold" onclick="importGame()">📥 確認結果並同步至雲端</button>
     </div>
 </div>
 
 <div class="card">
-    <h2>生活雜支登記</h2>
+    <h2>2. 生活雜支登記</h2>
     <select id="payer-id"></select>
-    <input type="number" id="amt" placeholder="輸入總金額" inputmode="decimal">
-    <input type="text" id="note" placeholder="備註 (例如: 晚餐)">
-    <div style="font-size:11px; color:var(--gray); margin-bottom:8px;">參與分帳人員：</div>
+    <input type="number" id="amt" placeholder="總金額" inputmode="decimal">
+    <input type="text" id="note" placeholder="備註">
     <div id="share-grid" class="share-grid"></div>
     <button class="btn btn-green" onclick="addExp()">✅ 提交分帳</button>
 </div>
 
 <div class="card">
-    <h2>目前餘額 (正數代表贏錢/代付)</h2>
+    <h2>3. 帳務中心</h2>
     <div id="ledger-list"></div>
-    <div style="text-align:center; margin-top:10px;">
-        <button class="btn btn-outline" style="width:auto; padding:5px 15px;" onclick="load()">🔄 手動重新整理</button>
-    </div>
+    <button class="btn btn-red" onclick="resetAll()">🧹 全體歸零並重置起始時間</button>
 </div>
 
 <script>
-const API_BASE = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
+const API = 'https://nzuxyiefpenwuqudajdw.supabase.co/rest/v1';
 const KEY = 'sb_publishable_7y2n8zIopxlKEhcsJ05D2A_U89IFgae';
-const HEADER = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+const HEAD = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
 
-let players = [], hInbox = [];
+let players = [], hInbox = [], lastResetTime = "2000-01-01T00:00:00";
 
 async function load() {
-    toggleLoading(true, "讀取雲端資料...");
+    toggleL(true, "同步資料...");
     try {
         const [pRes, hRes] = await Promise.all([
-            fetch(`${API_BASE}/players?select=*&order=name`, { headers: HEADER }),
-            fetch(`${API_BASE}/history?select=*&order=created_at.desc&limit=30`, { headers: HEADER })
+            fetch(`${API}/players?select=*&order=name`, { headers: HEAD }),
+            fetch(`${API}/history?select=*&order=created_at.desc`, { headers: HEAD })
         ]);
+        
         players = await pRes.json();
-        if (hRes.ok) {
-            const allH = await hRes.json();
-            // 過濾掉標記為 [已處理] 的單據
-            hInbox = allH.filter(h => h.description?.includes(':') && !h.description?.includes('[已處理]'));
-        }
-        document.getElementById('status-tag').innerText = "● 雲端同步完成";
-        document.getElementById('status-tag').style.color = "var(--green)";
+        const allH = await hRes.json();
+
+        // 找尋最後一次歸零的時間標記
+        const resetRecord = allH.find(h => h.description?.includes("【系統指令：歸零重置】"));
+        if(resetRecord) lastResetTime = resetRecord.created_at;
+
+        // 過濾：1.必須有冒號 2.不可有[已處理] 3.必須在最後歸零時間之後
+        hInbox = allH.filter(h => 
+            h.description?.includes(':') && 
+            !h.description?.includes('[已處理]') &&
+            h.created_at > lastResetTime
+        );
+
+        document.getElementById('status').innerText = "● 雲端已同步 (起始點: " + new Date(lastResetTime).toLocaleString() + ")";
         render();
-    } catch (e) {
-        document.getElementById('status-tag').innerText = "○ 連線失敗";
-        alert("讀取失敗，請檢查網路");
-    } finally { toggleLoading(false); }
+    } catch (e) { alert("連線失敗"); }
+    finally { toggleL(false); }
 }
 
 function render() {
-    const hSelect = document.getElementById('h-select');
-    hSelect.innerHTML = hInbox.length ? `<option value="">-- 有 ${hInbox.length} 筆新結單 --</option>` : '<option value="">(目前無新單據)</option>';
-    hInbox.forEach((h, i) => {
-        const time = new Date(h.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        hSelect.innerHTML += `<option value="${i}">${time} | ${h.description.substring(0,15)}...</option>`;
-    });
+    const s = document.getElementById('h-select');
+    s.innerHTML = hInbox.length ? `<option value="">-- 有 ${hInbox.length} 筆新結單 --</option>` : '<option value="">(目前無新單據)</option>';
+    hInbox.forEach((h, i) => s.innerHTML += `<option value="${i}">${new Date(h.created_at).toLocaleTimeString()} | ${h.description.substring(0,10)}...</option>`);
 
     document.getElementById('payer-id').innerHTML = players.map(p => `<option value="${p.id}">${p.name.replace('OFF_','')}</option>`).join('');
     document.getElementById('share-grid').innerHTML = players.map(p => `<div class="share-btn active" data-id="${p.id}" onclick="this.classList.toggle('active')">${p.name.replace('OFF_','')}</div>`).join('');
-    
-    document.getElementById('ledger-list').innerHTML = players.map(p => `
-        <div class="ledger-row">
-            <span>👤 ${p.name.replace('OFF_','')}</span>
-            <b style="color:${(p.debt||0)>=0?'var(--green)':'var(--red)'}">${Math.round(p.debt||0)}</b>
-        </div>`).join('');
+    document.getElementById('ledger-list').innerHTML = players.map(p => `<div class="ledger-row"><span>👤 ${p.name.replace('OFF_','')}</span><b style="color:${(p.debt||0)>=0?'var(--green)':'var(--red)'}">${Math.round(p.debt||0)}</b></div>`).join('');
 }
 
 function parseH() {
     const idx = document.getElementById('h-select').value;
-    if(idx === "") { document.getElementById('preview-area').style.display="none"; return; }
+    if(idx==="") return document.getElementById('preview-area').style.display="none";
     document.getElementById('preview-text').innerText = hInbox[idx].description;
     document.getElementById('preview-area').style.display = "block";
 }
@@ -117,84 +107,90 @@ async function importGame() {
     const idx = document.getElementById('h-select').value;
     const desc = hInbox[idx].description;
     const lines = desc.split('\n');
-    const updates = [];
+    let count = 0;
 
-    toggleLoading(true, "解析單據並入帳...");
+    toggleL(true, "正在匹配人員並入帳...");
     
-    lines.forEach(line => {
-        if(!line.includes(':')) return;
-        const [rawName, rawAmt] = line.split(':');
-        const cleanName = rawName.trim();
-        const amt = parseFloat(rawAmt);
-        const p = players.find(x => x.name.replace('OFF_','') === cleanName || x.name === cleanName);
-        if(p && !isNaN(amt)) {
-            updates.push({ id: p.id, newDebt: (p.debt || 0) + amt });
-        }
-    });
+    for(let line of lines) {
+        if(!line.includes(':')) continue;
+        const [n, a] = line.split(':');
+        const amt = parseFloat(a);
+        if(isNaN(amt)) continue;
 
-    if(!updates.length) return alert("解析失敗，找不到匹配球員");
+        // 增強型匹配：忽略空格，且包含匹配
+        const cleanN = n.trim();
+        const p = players.find(x => x.name.includes(cleanN) || cleanN.includes(x.name.replace('OFF_','')));
 
-    try {
-        for(let up of updates) {
-            await fetch(`${API_BASE}/players?id=eq.${up.id}`, {
-                method: 'PATCH', headers: HEADER, body: JSON.stringify({ debt: up.newDebt })
+        if(p) {
+            await fetch(`${API}/players?id=eq.${p.id}`, {
+                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + amt })
             });
+            count++;
         }
-        await clearHistory(); // 自動清除已入帳的紀錄
-        alert("✅ 遊戲結算入帳成功！");
+    }
+
+    if(count === 0) {
+        alert("解析失敗！請確認單據格式為「名字:金額」，且名字與成員名單相符。");
+    } else {
+        // 標記已處理
+        await fetch(`${API}/history?id=eq.${hInbox[idx].id}`, {
+            method: 'PATCH', headers: HEAD, body: JSON.stringify({ description: desc + "\n[已處理]" })
+        });
+        alert(`成功入帳 ${count} 位成員！`);
         load();
-    } catch(e) { alert("寫入失敗"); }
-    finally { toggleLoading(false); }
+    }
+    toggleL(false);
 }
 
 async function addExp() {
-    const payerId = document.getElementById('payer-id').value;
-    const totalAmt = parseFloat(document.getElementById('amt').value);
-    const sharers = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
-    
-    if(!totalAmt || !sharers.length) return alert("請輸入金額與選擇分帳人員");
-    
-    toggleLoading(true, "處理雜支分帳...");
-    const perAmt = totalAmt / sharers.length;
+    const pId = document.getElementById('payer-id').value;
+    const v = parseFloat(document.getElementById('amt').value);
+    const ids = Array.from(document.querySelectorAll('.share-btn.active')).map(el => el.dataset.id);
+    if(!v || !ids.length) return alert("請輸入金額與選擇人員");
 
-    try {
-        for(let p of players) {
-            let diff = 0;
-            if(p.id == payerId) diff += totalAmt; // 代付者收回總額
-            if(sharers.includes(p.id.toString())) diff -= perAmt; // 參與者扣掉平分金額
-            
-            if(diff !== 0) {
-                await fetch(`${API_BASE}/players?id=eq.${p.id}`, {
-                    method: 'PATCH', headers: HEADER, body: JSON.stringify({ debt: (p.debt || 0) + diff })
-                });
-            }
+    toggleL(true, "處理分帳...");
+    const per = v / ids.length;
+    for(let p of players) {
+        let diff = (p.id == pId ? v : 0) - (ids.includes(p.id.toString()) ? per : 0);
+        if(diff !== 0) {
+            await fetch(`${API}/players?id=eq.${p.id}`, {
+                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: (p.debt || 0) + diff })
+            });
         }
-        document.getElementById('amt').value = "";
-        alert("✅ 雜支登記完成");
-        load();
-    } catch(e) { alert("更新失敗"); }
-    finally { toggleLoading(false); }
+    }
+    document.getElementById('amt').value = "";
+    alert("✅ 雜支入帳完成");
+    load();
+    toggleL(false);
 }
 
-async function clearHistory() {
-    const idx = document.getElementById('h-select').value;
-    if(idx === "") return;
-    const h = hInbox[idx];
-    toggleLoading(true, "清除紀錄中...");
+async function resetAll() {
+    if(!confirm("確定要將所有餘額歸零，並忽略之前的所有單據嗎？")) return;
+    const pw = prompt("請輸入管理密碼 (8888):");
+    if(pw !== "8888") return;
+
+    toggleL(true, "執行歸零重置...");
     try {
-        await fetch(`${API_BASE}/history?id=eq.${h.id}`, {
-            method: 'PATCH', headers: HEADER,
-            body: JSON.stringify({ description: h.description + "\n[已處理]" })
+        // 1. 所有人餘額歸零
+        for(let p of players) {
+            await fetch(`${API}/players?id=eq.${p.id}`, {
+                method: 'PATCH', headers: HEAD, body: JSON.stringify({ debt: 0 })
+            });
+        }
+        // 2. 插入一條「歸零時間戳記」到 history
+        await fetch(`${API}/history`, {
+            method: 'POST', headers: HEAD,
+            body: JSON.stringify({ description: "【系統指令：歸零重置】\n此時間點之前的單據將不再讀取。" })
         });
-        document.getElementById('preview-area').style.display="none";
+        alert("歸零成功！舊單據已自動過濾。");
         load();
-    } catch(e) { alert("清除失敗"); }
-    finally { toggleLoading(false); }
+    } catch(e) { alert("重置失敗"); }
+    finally { toggleL(false); }
 }
 
-function toggleLoading(show, msg) {
-    document.getElementById('loading-overlay').style.display = show ? "flex" : "none";
-    if(msg) document.getElementById('loading-msg').innerText = msg;
+function toggleL(s, m) {
+    document.getElementById('loading').style.display = s ? "flex" : "none";
+    document.getElementById('msg').innerText = m || "";
 }
 
 load();
